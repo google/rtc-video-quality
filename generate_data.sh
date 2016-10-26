@@ -80,6 +80,8 @@ RESULTS=`cat $OUT_DIR/results.txt`
 echo
 echo "$FILE" "(${WIDTH}x${HEIGHT}@$FPS)" "->" "$ENCODED_FILE" "->" "$OUT_DIR/$OUT_FILE"
 echo
+echo Encoder: $ENCODER
+echo Codec: $VPX_CODEC
 echo "$RESULTS"
 [[ "$RESULTS" =~ Nframes:\ ([0-9]+) ]] || { >&2 echo HOLY WHAT BORK BORK; exit 1; }
 FRAMES=${BASH_REMATCH[1]}

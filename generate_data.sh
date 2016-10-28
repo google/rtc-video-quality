@@ -24,15 +24,64 @@ function play_mplayer() {
   exit 0 # Do not continue with SSIM/PSNR comparison.
 }
 
+function libvpx_tl() {
+  THREADS=4
+  if [ "$VPX_CODEC" = "vp8" ]; then
+    # TODO(pbos): Account for low resolutions (use CPU=4)
+    CODEC_CPU=6
+  else
+    # VP9
+    # TODO(pbos): Account for low resolutions (use CPU=5)
+    CODEC_CPU=7
+  fi
+  ENCODED_FILE="$OUT_DIR/out"
+  # TODO(pbos): Add support for non-hardcoded lower-layer bitrates.
+  if [ "$TEMPORAL_LAYERS" = "2" ]; then
+    LAYER_STRATEGY=8
+    BITRATES="1300 $BITRATE_KBPS"
+  elif [ "$TEMPORAL_LAYERS" = "3" ]; then
+    LAYER_STRATEGY=10
+    BITRATES="800 1300 $BITRATE_KBPS"
+  else
+    >&2 echo Incorrect temporal layers.
+    exit 1
+  fi
+  set -x
+  libvpx/examples/vpx_temporal_svc_encoder "$FILE" "$ENCODED_FILE" $VPX_CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $THREADS $LAYER_STRATEGY $BITRATES
+  { set +x; } 2>/dev/null
+  # TODO(pbos): Support lower layers for SSIM/PSNR too.
+  ENCODED_FILE=${ENCODED_FILE}_`expr $TEMPORAL_LAYERS "-" 1`.ivf
+}
+
 ENCODER="$1"
 if [ "$ENCODER" = "libvpx-vp8" ]; then
   ENCODER_COMMAND=libvpx
   VPX_CODEC=vp8
-  OUT_DIR=out/libvpx_vp8
+  OUT_DIR=out/$ENCODER
 elif [ "$ENCODER" = "libvpx-vp9" ]; then
   ENCODER_COMMAND=libvpx
   VPX_CODEC=vp9
-  OUT_DIR=out/libvpx_vp9
+  OUT_DIR=out/$ENCODER
+elif [ "$ENCODER" = "libvpx-vp8-1sl2tl" ]; then
+  ENCODER_COMMAND=libvpx_tl
+  VPX_CODEC=vp8
+  TEMPORAL_LAYERS=2
+  OUT_DIR=out/$ENCODER
+elif [ "$ENCODER" = "libvpx-vp9-1sl2tl" ]; then
+  ENCODER_COMMAND=libvpx_tl
+  VPX_CODEC=vp9
+  TEMPORAL_LAYERS=2
+  OUT_DIR=out/$ENCODER
+elif [ "$ENCODER" = "libvpx-vp8-1sl3tl" ]; then
+  ENCODER_COMMAND=libvpx_tl
+  VPX_CODEC=vp8
+  TEMPORAL_LAYERS=3
+  OUT_DIR=out/$ENCODER
+elif [ "$ENCODER" = "libvpx-vp9-1sl3tl" ]; then
+  ENCODER_COMMAND=libvpx_tl
+  VPX_CODEC=vp9
+  TEMPORAL_LAYERS=3
+  OUT_DIR=out/$ENCODER
 #TODO(pbos): Add support for more encoders here, libva/ffmpeg/etc.
 elif [ "$ENCODER" = "play" ]; then
   ENCODER_COMMAND=play_mplayer

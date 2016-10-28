@@ -7,7 +7,7 @@ function help_and_exit() {
 
 function libvpx() {
   COMMON_PARAMS="--lag-in-frames=0 --error-resilient=1 --kf-min-dist=3000 --kf-max-dist=3000 --static-thresh=1 --end-usage=cbr --undershoot-pct=100 --overshoot-pct=15 --buf-sz=1000 --buf-initial-sz=500 --buf-optimal-sz=600 --max-intra-rate=900 --resize-allowed=0 --drop-frame=0 --passes=1 --rt --noise-sensitivity=0"
-  if [ "$VPX_CODEC" = "vp8" ]; then
+  if [ "$CODEC" = "vp8" ]; then
     CODEC_PARAMS="--codec=vp8 --cpu-used=-6 --min-q=2 --max-q=56 --screen-content-mode=0 --threads=4"
   else
     # VP9
@@ -26,7 +26,7 @@ function play_mplayer() {
 
 function libvpx_tl() {
   THREADS=4
-  if [ "$VPX_CODEC" = "vp8" ]; then
+  if [ "$CODEC" = "vp8" ]; then
     # TODO(pbos): Account for low resolutions (use CPU=4)
     CODEC_CPU=6
   else
@@ -47,41 +47,41 @@ function libvpx_tl() {
     exit 1
   fi
   set -x
-  libvpx/examples/vpx_temporal_svc_encoder "$FILE" "$ENCODED_FILE" $VPX_CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $THREADS $LAYER_STRATEGY $BITRATES
+  libvpx/examples/vpx_temporal_svc_encoder "$FILE" "$ENCODED_FILE" $CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $THREADS $LAYER_STRATEGY $BITRATES
   { set +x; } 2>/dev/null
   # TODO(pbos): Support lower layers for SSIM/PSNR too.
   ENCODED_FILE=${ENCODED_FILE}_`expr $TEMPORAL_LAYERS "-" 1`.ivf
 }
 
 ENCODER="$1"
-if [ "$ENCODER" = "libvpx-vp8" ]; then
-  ENCODER_COMMAND=libvpx
-  VPX_CODEC=vp8
-  OUT_DIR=out/$ENCODER
-elif [ "$ENCODER" = "libvpx-vp9" ]; then
-  ENCODER_COMMAND=libvpx
-  VPX_CODEC=vp9
-  OUT_DIR=out/$ENCODER
-elif [ "$ENCODER" = "libvpx-vp8-1sl2tl" ]; then
-  ENCODER_COMMAND=libvpx_tl
-  VPX_CODEC=vp8
-  TEMPORAL_LAYERS=2
-  OUT_DIR=out/$ENCODER
-elif [ "$ENCODER" = "libvpx-vp9-1sl2tl" ]; then
-  ENCODER_COMMAND=libvpx_tl
-  VPX_CODEC=vp9
-  TEMPORAL_LAYERS=2
-  OUT_DIR=out/$ENCODER
-elif [ "$ENCODER" = "libvpx-vp8-1sl3tl" ]; then
-  ENCODER_COMMAND=libvpx_tl
-  VPX_CODEC=vp8
-  TEMPORAL_LAYERS=3
-  OUT_DIR=out/$ENCODER
-elif [ "$ENCODER" = "libvpx-vp9-1sl3tl" ]; then
-  ENCODER_COMMAND=libvpx_tl
-  VPX_CODEC=vp9
-  TEMPORAL_LAYERS=3
-  OUT_DIR=out/$ENCODER
+OUT_DIR=out/$ENCODER
+# Extract temporal/spatial layer strategy if available, otherwise use 1/1.
+if [[ "$ENCODER" =~ ^(.*)-([1-3])sl([1-3])tl$ ]]; then
+  ENCODER=${BASH_REMATCH[1]}
+  SPATIAL_LAYERS=${BASH_REMATCH[2]}
+  TEMPORAL_LAYERS=${BASH_REMATCH[3]}
+else
+  SPATIAL_LAYERS=1
+  TEMPORAL_LAYERS=1
+fi
+
+# Extract codec type if available.
+if [[ "$ENCODER" =~ ^(.*)-(vp[8-9])$ ]]; then
+  ENCODER=${BASH_REMATCH[1]}
+  CODEC=${BASH_REMATCH[2]}
+elif [[ "$ENCODER" =~ ^(.*)-(h264)$ ]]; then
+  ENCODER=${BASH_REMATCH[1]}
+  CODEC=${BASH_REMATCH[2]}
+fi
+
+if [ "$ENCODER" = "libvpx" ]; then
+  [ "$CODEC" = "vp8" ] || [ "$CODEC" = "vp9" ] || { >&2 echo Unsupported codec: "'$CODEC'"; help_and_exit; }
+  if [ "$TEMPORAL_LAYERS" = "1" ]; then
+    ENCODER_COMMAND=libvpx
+  else
+    ENCODER_COMMAND=libvpx_tl
+  fi
+  [ "$SPATIAL_LAYERS" = "1" ] || { >&2 echo "Command doesn't support >1 spatial layers yet. :("; help_and_exit; }
 #TODO(pbos): Add support for more encoders here, libva/ffmpeg/etc.
 elif [ "$ENCODER" = "play" ]; then
   ENCODER_COMMAND=play_mplayer
@@ -122,7 +122,7 @@ $ENCODER_COMMAND
 END_TIME=$(date +%s.%N)
 ENCODE_SEC=$(bc <<< "($END_TIME - $START_TIME)")
 
-libvpx/vpxdec --i420 --codec=$VPX_CODEC -o "$OUT_DIR/$OUT_FILE" "$ENCODED_FILE"
+libvpx/vpxdec --i420 --codec=$CODEC -o "$OUT_DIR/$OUT_FILE" "$ENCODED_FILE"
 
 libvpx/tools/tiny_ssim "$FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT} > "$OUT_DIR/results.txt"
 RESULTS=`cat $OUT_DIR/results.txt`
@@ -130,7 +130,9 @@ echo
 echo "$FILE" "(${WIDTH}x${HEIGHT}@$FPS)" "->" "$ENCODED_FILE" "->" "$OUT_DIR/$OUT_FILE"
 echo
 echo Encoder: $ENCODER
-echo Codec: $VPX_CODEC
+echo Codec: $CODEC
+echo SpatialLayers: $SPATIAL_LAYERS
+echo TemporalLayers: $TEMPORAL_LAYERS
 echo "$RESULTS"
 [[ "$RESULTS" =~ Nframes:\ ([0-9]+) ]] || { >&2 echo HOLY WHAT BORK BORK; exit 1; }
 FRAMES=${BASH_REMATCH[1]}

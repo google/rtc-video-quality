@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function help_and_exit() {
-  >&2 echo Usage: ./generate_data.sh ENCODER BITRATE_KBPS FPS file.WIDTH_HEIGHT.yuv
+  >&2 echo "Usage: ./generate_data.sh ENCODER BITRATE_KBPS[:BITRATE_KBPS..] FPS file.WIDTH_HEIGHT.yuv"
   exit 1
 }
 
@@ -15,7 +15,7 @@ function libvpx() {
   fi
   ENCODED_FILE="$OUT_DIR/out.webm"
   set -x
-  libvpx/vpxenc $CODEC_PARAMS $COMMON_PARAMS --fps=$FPS/1 --target-bitrate=$BITRATE_KBPS --width=$WIDTH --height=$HEIGHT -o "$ENCODED_FILE" "$FILE"
+  libvpx/vpxenc $CODEC_PARAMS $COMMON_PARAMS --fps=$FPS/1 --target-bitrate=${BITRATES_KBPS[0]} --width=$WIDTH --height=$HEIGHT -o "$ENCODED_FILE" "$FILE"
   { set +x; } 2>/dev/null
 }
 
@@ -34,20 +34,17 @@ function libvpx_tl() {
     # TODO(pbos): Account for low resolutions (use CPU=5)
     CODEC_CPU=7
   fi
-  ENCODED_FILE="$OUT_DIR/out"
-  # TODO(pbos): Add support for non-hardcoded lower-layer bitrates.
   if [ "$TEMPORAL_LAYERS" = "2" ]; then
     LAYER_STRATEGY=8
-    BITRATES="1300 $BITRATE_KBPS"
   elif [ "$TEMPORAL_LAYERS" = "3" ]; then
     LAYER_STRATEGY=10
-    BITRATES="800 1300 $BITRATE_KBPS"
   else
     >&2 echo Incorrect temporal layers.
     exit 1
   fi
+  ENCODED_FILE="$OUT_DIR/out"
   set -x
-  libvpx/examples/vpx_temporal_svc_encoder "$FILE" "$ENCODED_FILE" $CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $THREADS $LAYER_STRATEGY $BITRATES
+  libvpx/examples/vpx_temporal_svc_encoder "$FILE" "$ENCODED_FILE" $CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $THREADS $LAYER_STRATEGY ${BITRATES_KBPS[@]}
   { set +x; } 2>/dev/null
   # TODO(pbos): Support lower layers for SSIM/PSNR too.
   ENCODED_FILE=${ENCODED_FILE}_`expr $TEMPORAL_LAYERS "-" 1`.ivf
@@ -91,12 +88,15 @@ else
   help_and_exit
 fi
 
-# Uncomment for a verbose mode:
-BITRATE_KBPS="$2"
+BITRATES_KBPS="$2"
 
-if [ ! "$BITRATE_KBPS" ]; then
+if [ ! "$BITRATES_KBPS" ]; then
   help_and_exit
 fi
+
+# Split bitrates into array.
+IFS=: read -r -a BITRATES_KBPS <<< "$BITRATES_KBPS"
+[ "${#BITRATES_KBPS[@]}" = "$TEMPORAL_LAYERS" ] || { >&2 echo Bitrates do not match number of temporal layers.; help_and_exit; }
 
 FPS="$3"
 
@@ -124,8 +124,7 @@ ENCODE_SEC=$(bc <<< "($END_TIME - $START_TIME)")
 
 libvpx/vpxdec --i420 --codec=$CODEC -o "$OUT_DIR/$OUT_FILE" "$ENCODED_FILE"
 
-libvpx/tools/tiny_ssim "$FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT} > "$OUT_DIR/results.txt"
-RESULTS=`cat $OUT_DIR/results.txt`
+RESULTS=`libvpx/tools/tiny_ssim "$FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT}`
 echo
 echo "$FILE" "(${WIDTH}x${HEIGHT}@$FPS)" "->" "$ENCODED_FILE" "->" "$OUT_DIR/$OUT_FILE"
 echo
@@ -136,9 +135,9 @@ echo TemporalLayers: $TEMPORAL_LAYERS
 echo "$RESULTS"
 [[ "$RESULTS" =~ Nframes:\ ([0-9]+) ]] || { >&2 echo HOLY WHAT BORK BORK; exit 1; }
 FRAMES=${BASH_REMATCH[1]}
-echo Target bitrate: `expr $BITRATE_KBPS "*" 1000`
+echo Target bitrate: `expr ${BITRATES_KBPS[-1]} "*" 1000`
 BITRATE_USED=$(expr `wc -c < "$ENCODED_FILE"` "*" 8 "*" $FPS "/" $FRAMES)
 echo Bitrate: $BITRATE_USED
-echo BitrateUtilization: $(bc <<< "scale=2; $BITRATE_USED/($BITRATE_KBPS * 1000)")
+echo BitrateUtilization: $(bc <<< "scale=2; $BITRATE_USED/(${BITRATES_KBPS[-1]} * 1000)")
 echo EncodeMs: $(bc <<< "scale=0; $ENCODE_SEC * 1000")
 echo EncodeTimeUsed: $(bc <<< "scale=2; $ENCODE_SEC / ($FRAMES / $FPS)")

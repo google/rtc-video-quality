@@ -8,9 +8,10 @@ if [ ! -d libvpx ]; then
   git clone https://chromium.googlesource.com/webm/libvpx
 fi
 
-# Update libvpx
+# Check out the correct libvpx version
 pushd libvpx
-git pull
+git fetch
+git checkout --detach 9205f54744f0a92ed32b775a80e9400d44f0f24b
 
 # Build libvpx
 ./configure --enable-experimental --enable-spatial-svc --enable-multi-res-encoding

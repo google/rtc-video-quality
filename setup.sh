@@ -15,8 +15,3 @@ git pull
 # Build libvpx
 ./configure --enable-experimental --enable-spatial-svc --enable-multi-res-encoding
 make
-
-popd
-
-# Build tiny_ssim
-clang tiny_ssim.c -o tiny_ssim -lm

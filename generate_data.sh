@@ -124,7 +124,7 @@ ENCODE_SEC=$(bc <<< "($END_TIME - $START_TIME)")
 
 libvpx/vpxdec --i420 --codec=$VPX_CODEC -o "$OUT_DIR/$OUT_FILE" "$ENCODED_FILE"
 
-./tiny_ssim "$FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT} > "$OUT_DIR/results.txt"
+libvpx/tools/tiny_ssim "$FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT} > "$OUT_DIR/results.txt"
 RESULTS=`cat $OUT_DIR/results.txt`
 echo
 echo "$FILE" "(${WIDTH}x${HEIGHT}@$FPS)" "->" "$ENCODED_FILE" "->" "$OUT_DIR/$OUT_FILE"

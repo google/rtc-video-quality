@@ -92,14 +92,15 @@ else
   help_and_exit
 fi
 
-BITRATES_KBPS="$2"
+CONFIG_BITRATES_KBPS="$2"
 
-if [ ! "$BITRATES_KBPS" ]; then
+if [ ! "$CONFIG_BITRATES_KBPS" ]; then
   help_and_exit
 fi
 
+
 # Split bitrates into array.
-IFS=: read -r -a BITRATES_KBPS <<< "$BITRATES_KBPS"
+IFS=: read -r -a BITRATES_KBPS <<< "$CONFIG_BITRATES_KBPS"
 [ "${#BITRATES_KBPS[@]}" = "$TEMPORAL_LAYERS" ] || { >&2 echo Bitrates do not match number of temporal layers.; help_and_exit; }
 
 FPS="$3"
@@ -165,6 +166,8 @@ echo '  "fps":' $FPS,
 echo '  "encoded-file":' \"$ENCODED_FILE\",
 echo '  "encoder":' \"$ENCODER\",
 echo '  "codec":' \"$CODEC\",
+echo '  "layer-pattern":' \"${SPATIAL_LAYERS}sl${TEMPORAL_LAYERS}tl\",
+echo '  "bitrate-config-kbps":' \"$CONFIG_BITRATES_KBPS\",
 echo '  "spatial-layer":' $SPATIAL_LAYER,
 echo '  "temporal-layer":' $TEMPORAL_LAYER,
 echo '  "avg-psnr":' $AVG_PSNR,

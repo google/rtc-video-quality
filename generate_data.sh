@@ -126,9 +126,10 @@ START_TIME=$(date +%s.%N)
 $ENCODER_COMMAND
 END_TIME=$(date +%s.%N)
 
-# Generate stats for each spatial/temporal layer.
-for SPATIAL_LAYER in $(seq 0 `expr $SPATIAL_LAYERS "-" 1`); do
-for TEMPORAL_LAYER in $(seq 0 `expr $TEMPORAL_LAYERS "-" 1`); do
+# Generate stats for each spatial/temporal layer. Highest first to generate
+# accurate expected encode times based on the top layer.
+for SPATIAL_LAYER in $(seq `expr $SPATIAL_LAYERS "-" 1` -1 0); do
+for TEMPORAL_LAYER in $(seq `expr $TEMPORAL_LAYERS "-" 1` -1 0); do
 
 # TODO(pbos): Handle spatial layers.
 ENCODED_FILE="${ENCODED_FILE_PREFIX}_$TEMPORAL_LAYER.${ENCODED_FILE_SUFFIX}"
@@ -143,23 +144,26 @@ LAYER_FPS=$(awk "BEGIN {printf \"%0f\n\", ( $FPS / $TEMPORAL_DIVIDE )}")
 
 # Run tiny_ssim to generate SSIM/PSNR scores.
 SSIM_RESULTS=`libvpx/tools/tiny_ssim "$FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT} $TEMPORAL_SKIP`
-# Extract average PSNR
+# Extract average PSNR.
 [[ "$SSIM_RESULTS" =~ AvgPSNR:\ ([0-9\.]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
 AVG_PSNR=${BASH_REMATCH[1]}
-# Extract global PSNR
+# Extract global PSNR.
 [[ "$SSIM_RESULTS" =~ GlbPSNR:\ ([0-9\.]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
 GLB_PSNR=${BASH_REMATCH[1]}
-# Extract SSIM
+# Extract SSIM.
 [[ "$SSIM_RESULTS" =~ SSIM:\ ([0-9\.]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
 SSIM=${BASH_REMATCH[1]}
 # Extract number of frames.
 [[ "$SSIM_RESULTS" =~ Nframes:\ ([0-9]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
 NUM_FRAMES=${BASH_REMATCH[1]}
 
-# Calculate target/actual encode times.
-ACTUAL_ENCODE_TIME_MS=$(awk "BEGIN {printf \"%0f\n\", ( ($END_TIME - $START_TIME) * 1000 )}")
-TARGET_ENCODE_TIME_MS=$(awk "BEGIN {print ( $NUM_FRAMES / $FPS * 1000 )}")
-ENCODE_TIME_UTILIZATION=$(awk "BEGIN {printf \"%0f\n\", ( $ACTUAL_ENCODE_TIME_MS / $TARGET_ENCODE_TIME_MS )}")
+# Calculate target/actual encode times only once from top temporal/spatial
+# layers.
+if [ $TEMPORAL_LAYER = $(expr $TEMPORAL_LAYERS "-" 1) ] && [ $SPATIAL_LAYER = $(expr $SPATIAL_LAYERS "-" 1) ]; then
+  ACTUAL_ENCODE_TIME_MS=$(awk "BEGIN {printf \"%0f\n\", ( ($END_TIME - $START_TIME) * 1000 )}")
+  TARGET_ENCODE_TIME_MS=$(awk "BEGIN {print ( $NUM_FRAMES / $FPS * 1000 )}")
+  ENCODE_TIME_UTILIZATION=$(awk "BEGIN {printf \"%0f\n\", ( $ACTUAL_ENCODE_TIME_MS / $TARGET_ENCODE_TIME_MS )}")
+fi
 
 # Calculate target/actual bitrates.
 BITRATE_USED_BPS=$(awk "BEGIN {printf \"%0.f\n\", (`wc -c < \"$ENCODED_FILE\"` * 8 * $LAYER_FPS / $NUM_FRAMES)}")

@@ -18,7 +18,7 @@ function libvpx() {
   ENCODED_FILE_PREFIX="$OUT_DIR/out"
   ENCODED_FILE_SUFFIX=webm
   set -x
-  libvpx/vpxenc $CODEC_PARAMS $COMMON_PARAMS --fps=$FPS/1 --target-bitrate=${BITRATES_KBPS[0]} --width=$WIDTH --height=$HEIGHT -o "${ENCODED_FILE_PREFIX}_0.webm" "$FILE"
+  >&2 libvpx/vpxenc $CODEC_PARAMS $COMMON_PARAMS --fps=$FPS/1 --target-bitrate=${BITRATES_KBPS[0]} --width=$WIDTH --height=$HEIGHT -o "${ENCODED_FILE_PREFIX}_0.webm" "$FILE"
   { set +x; } 2>/dev/null
 }
 
@@ -48,7 +48,7 @@ function libvpx_tl() {
   ENCODED_FILE_PREFIX="$OUT_DIR/out"
   ENCODED_FILE_SUFFIX=ivf
   set -x
-  libvpx/examples/vpx_temporal_svc_encoder "$FILE" "$ENCODED_FILE_PREFIX" $CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $THREADS $LAYER_STRATEGY ${BITRATES_KBPS[@]}
+  >&2 libvpx/examples/vpx_temporal_svc_encoder "$FILE" "$ENCODED_FILE_PREFIX" $CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $THREADS $LAYER_STRATEGY ${BITRATES_KBPS[@]}
   { set +x; } 2>/dev/null
 }
 
@@ -124,25 +124,56 @@ fi
 START_TIME=$(date +%s.%N)
 $ENCODER_COMMAND
 END_TIME=$(date +%s.%N)
-ENCODE_SEC=$(bc <<< "($END_TIME - $START_TIME)")
 
-ENCODED_FILE="${ENCODED_FILE_PREFIX}_`expr $TEMPORAL_LAYERS - 1`.${ENCODED_FILE_SUFFIX}"
+SPATIAL_LAYER=`expr $SPATIAL_LAYERS "-" 1`
+TEMPORAL_LAYER=`expr $TEMPORAL_LAYERS "-" 1`
+
+# TODO(pbos): Handle spatial layers.
+ENCODED_FILE="${ENCODED_FILE_PREFIX}_$TEMPORAL_LAYER.${ENCODED_FILE_SUFFIX}"
 libvpx/vpxdec --i420 --codec=$CODEC -o "$OUT_DIR/$OUT_FILE" "${ENCODED_FILE}"
 
-RESULTS=`libvpx/tools/tiny_ssim "$FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT}`
-echo
-echo "$FILE" "(${WIDTH}x${HEIGHT}@$FPS)" "->" "$ENCODED_FILE" "->" "$OUT_DIR/$OUT_FILE"
-echo
-echo Encoder: $ENCODER
-echo Codec: $CODEC
-echo SpatialLayers: $SPATIAL_LAYERS
-echo TemporalLayers: $TEMPORAL_LAYERS
-echo "$RESULTS"
-[[ "$RESULTS" =~ Nframes:\ ([0-9]+) ]] || { >&2 echo HOLY WHAT BORK BORK; exit 1; }
-FRAMES=${BASH_REMATCH[1]}
-echo Target bitrate: `expr ${BITRATES_KBPS[-1]} "*" 1000`
-BITRATE_USED=$(expr `wc -c < "$ENCODED_FILE"` "*" 8 "*" $FPS "/" $FRAMES)
-echo Bitrate: $BITRATE_USED
-echo BitrateUtilization: $(bc <<< "scale=2; $BITRATE_USED/(${BITRATES_KBPS[-1]} * 1000)")
-echo EncodeMs: $(bc <<< "scale=0; $ENCODE_SEC * 1000")
-echo EncodeTimeUsed: $(bc <<< "scale=2; $ENCODE_SEC / ($FRAMES / $FPS)")
+>&2 echo "$FILE" "(${WIDTH}x${HEIGHT}@$FPS)" "->" "$ENCODED_FILE" "->" "$OUT_DIR/$OUT_FILE"
+SSIM_RESULTS=`libvpx/tools/tiny_ssim "$FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT}`
+# Extract average PSNR
+[[ "$SSIM_RESULTS" =~ AvgPSNR:\ ([0-9\.]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
+AVG_PSNR=${BASH_REMATCH[1]}
+# Extract global PSNR
+[[ "$SSIM_RESULTS" =~ GlbPSNR:\ ([0-9\.]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
+GLB_PSNR=${BASH_REMATCH[1]}
+# Extract SSIM
+[[ "$SSIM_RESULTS" =~ SSIM:\ ([0-9\.]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
+SSIM=${BASH_REMATCH[1]}
+# Extract number of frames.
+[[ "$SSIM_RESULTS" =~ Nframes:\ ([0-9]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
+NUM_FRAMES=${BASH_REMATCH[1]}
+
+# Calculate target/actual encode times.
+ACTUAL_ENCODE_TIME_MS=$(awk "BEGIN {printf \"%0f\n\", ( ($END_TIME - $START_TIME) * 1000 )}")
+TARGET_ENCODE_TIME_MS=$(awk "BEGIN {print ( $NUM_FRAMES / $FPS * 1000 )}")
+ENCODE_TIME_UTILIZATION=$(awk "BEGIN {printf \"%0f\n\", ( $ACTUAL_ENCODE_TIME_MS / $TARGET_ENCODE_TIME_MS )}")
+
+# Calculate target/actual bitrates.
+BITRATE_USED_BPS=$(expr `wc -c < "$ENCODED_FILE"` "*" 8 "*" $FPS "/" $NUM_FRAMES)
+TARGET_BITRATE_BPS=`expr ${BITRATES_KBPS[${TEMPORAL_LAYER}]} "*" 1000`
+BITRATE_UTILIZATION=$(awk "BEGIN {printf \"%0f\n\", ( $BITRATE_USED_BPS / $TARGET_BITRATE_BPS )}")
+
+echo "{"
+echo '  "input-file":' \"$FILE\",
+echo '  "width":' $WIDTH,
+echo '  "height":' $HEIGHT,
+echo '  "fps":' $FPS,
+echo '  "encoded-file":' \"$ENCODED_FILE\",
+echo '  "encoder":' \"$ENCODER\",
+echo '  "codec":' \"$CODEC\",
+echo '  "spatial-layer":' $SPATIAL_LAYER,
+echo '  "temporal-layer":' $TEMPORAL_LAYER,
+echo '  "avg-psnr":' $AVG_PSNR,
+echo '  "glb-psnr":' $GLB_PSNR,
+echo '  "ssim":' $SSIM,
+echo '  "target-bitrate-bps":' $TARGET_BITRATE_BPS,
+echo '  "actual-bitrate-bps":' $BITRATE_USED_BPS,
+echo '  "bitrate-utilization":' $BITRATE_UTILIZATION,
+echo '  "target-encode-time-ms":' $TARGET_ENCODE_TIME_MS,
+echo '  "actual-encode-time-ms":' $ACTUAL_ENCODE_TIME_MS,
+echo '  "encode-time-utilization":' $ENCODE_TIME_UTILIZATION
+echo "},"

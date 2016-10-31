@@ -126,15 +126,23 @@ START_TIME=$(date +%s.%N)
 $ENCODER_COMMAND
 END_TIME=$(date +%s.%N)
 
-SPATIAL_LAYER=`expr $SPATIAL_LAYERS "-" 1`
-TEMPORAL_LAYER=`expr $TEMPORAL_LAYERS "-" 1`
+# Generate stats for each spatial/temporal layer.
+for SPATIAL_LAYER in $(seq 0 `expr $SPATIAL_LAYERS "-" 1`); do
+for TEMPORAL_LAYER in $(seq 0 `expr $TEMPORAL_LAYERS "-" 1`); do
 
 # TODO(pbos): Handle spatial layers.
 ENCODED_FILE="${ENCODED_FILE_PREFIX}_$TEMPORAL_LAYER.${ENCODED_FILE_SUFFIX}"
 libvpx/vpxdec --i420 --codec=$CODEC -o "$OUT_DIR/$OUT_FILE" "${ENCODED_FILE}"
 
->&2 echo "$FILE" "(${WIDTH}x${HEIGHT}@$FPS)" "->" "$ENCODED_FILE" "->" "$OUT_DIR/$OUT_FILE"
-SSIM_RESULTS=`libvpx/tools/tiny_ssim "$FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT}`
+# For temporal layers we need to skip input frames belonging to higher layers.
+# When calculating bitrates we need to take into account that lower layers have
+# lower frame rates.
+TEMPORAL_DIVIDE=$(awk "BEGIN {print ( 2 ** ( $TEMPORAL_LAYERS - 1 - $TEMPORAL_LAYER ))}")
+TEMPORAL_SKIP=`expr $TEMPORAL_DIVIDE "-" 1`
+LAYER_FPS=$(awk "BEGIN {printf \"%0f\n\", ( $FPS / $TEMPORAL_DIVIDE )}")
+
+# Run tiny_ssim to generate SSIM/PSNR scores.
+SSIM_RESULTS=`libvpx/tools/tiny_ssim "$FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT} $TEMPORAL_SKIP`
 # Extract average PSNR
 [[ "$SSIM_RESULTS" =~ AvgPSNR:\ ([0-9\.]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
 AVG_PSNR=${BASH_REMATCH[1]}
@@ -154,15 +162,17 @@ TARGET_ENCODE_TIME_MS=$(awk "BEGIN {print ( $NUM_FRAMES / $FPS * 1000 )}")
 ENCODE_TIME_UTILIZATION=$(awk "BEGIN {printf \"%0f\n\", ( $ACTUAL_ENCODE_TIME_MS / $TARGET_ENCODE_TIME_MS )}")
 
 # Calculate target/actual bitrates.
-BITRATE_USED_BPS=$(expr `wc -c < "$ENCODED_FILE"` "*" 8 "*" $FPS "/" $NUM_FRAMES)
+BITRATE_USED_BPS=$(awk "BEGIN {printf \"%0.f\n\", (`wc -c < \"$ENCODED_FILE\"` * 8 * $LAYER_FPS / $NUM_FRAMES)}")
 TARGET_BITRATE_BPS=`expr ${BITRATES_KBPS[${TEMPORAL_LAYER}]} "*" 1000`
 BITRATE_UTILIZATION=$(awk "BEGIN {printf \"%0f\n\", ( $BITRATE_USED_BPS / $TARGET_BITRATE_BPS )}")
 
+# Print results as a JSON object.
 echo "{"
 echo '  "input-file":' \"$FILE\",
 echo '  "width":' $WIDTH,
 echo '  "height":' $HEIGHT,
 echo '  "fps":' $FPS,
+echo '  "layer-fps":' $LAYER_FPS,
 echo '  "encoded-file":' \"$ENCODED_FILE\",
 echo '  "encoder":' \"$ENCODER\",
 echo '  "codec":' \"$CODEC\",
@@ -180,3 +190,6 @@ echo '  "target-encode-time-ms":' $TARGET_ENCODE_TIME_MS,
 echo '  "actual-encode-time-ms":' $ACTUAL_ENCODE_TIME_MS,
 echo '  "encode-time-utilization":' $ENCODE_TIME_UTILIZATION
 echo "},"
+
+done
+done

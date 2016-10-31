@@ -18,12 +18,12 @@ function libvpx() {
   ENCODED_FILE_PREFIX="$OUT_DIR/out"
   ENCODED_FILE_SUFFIX=webm
   set -x
-  >&2 libvpx/vpxenc $CODEC_PARAMS $COMMON_PARAMS --fps=$FPS/1 --target-bitrate=${BITRATES_KBPS[0]} --width=$WIDTH --height=$HEIGHT -o "${ENCODED_FILE_PREFIX}_0.webm" "$FILE"
+  >&2 libvpx/vpxenc $CODEC_PARAMS $COMMON_PARAMS --fps=$FPS/1 --target-bitrate=${BITRATES_KBPS[0]} --width=$WIDTH --height=$HEIGHT -o "${ENCODED_FILE_PREFIX}_0.webm" "$INPUT_FILE"
   { set +x; } 2>/dev/null
 }
 
 function play_mplayer() {
-  mplayer -demuxer rawvideo -rawvideo w=$WIDTH:h=$HEIGHT:fps=$FPS:format=i420 "$FILE"
+  mplayer -demuxer rawvideo -rawvideo w=$WIDTH:h=$HEIGHT:fps=$FPS:format=i420 "$INPUT_FILE"
   exit 0 # Do not continue with SSIM/PSNR comparison.
 }
 
@@ -48,7 +48,7 @@ function libvpx_tl() {
   ENCODED_FILE_PREFIX="$OUT_DIR/out"
   ENCODED_FILE_SUFFIX=ivf
   set -x
-  >&2 libvpx/examples/vpx_temporal_svc_encoder "$FILE" "$ENCODED_FILE_PREFIX" $CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $THREADS $LAYER_STRATEGY ${BITRATES_KBPS[@]}
+  >&2 libvpx/examples/vpx_temporal_svc_encoder "$INPUT_FILE" "$ENCODED_FILE_PREFIX" $CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $THREADS $LAYER_STRATEGY ${BITRATES_KBPS[@]}
   { set +x; } 2>/dev/null
 }
 
@@ -109,8 +109,8 @@ if [ ! "$FPS" ]; then
   help_and_exit
 fi
 
-FILE="$4"
-[[ "$FILE" =~ ([0-9]+)_([0-9]+).yuv$ ]] || { >&2 echo File needs to contain WIDTH_HEIGHT.yuv; help_and_exit; }
+INPUT_FILE="$4"
+[[ "$INPUT_FILE" =~ ([0-9]+)_([0-9]+).yuv$ ]] || { >&2 echo File needs to contain WIDTH_HEIGHT.yuv; help_and_exit; }
 WIDTH=${BASH_REMATCH[1]}
 HEIGHT=${BASH_REMATCH[2]}
 OUT_FILE="out.${WIDTH}_${HEIGHT}.yuv"
@@ -126,6 +126,7 @@ START_TIME=$(date +%s.%N)
 $ENCODER_COMMAND
 END_TIME=$(date +%s.%N)
 
+INPUT_FILE_HASH=`sha1sum "$INPUT_FILE" | awk '{print $1}'`
 # Generate stats for each spatial/temporal layer. Highest first to generate
 # accurate expected encode times based on the top layer.
 for SPATIAL_LAYER in $(seq `expr $SPATIAL_LAYERS "-" 1` -1 0); do
@@ -143,7 +144,7 @@ TEMPORAL_SKIP=`expr $TEMPORAL_DIVIDE "-" 1`
 LAYER_FPS=$(awk "BEGIN {printf \"%0f\n\", ( $FPS / $TEMPORAL_DIVIDE )}")
 
 # Run tiny_ssim to generate SSIM/PSNR scores.
-SSIM_RESULTS=`libvpx/tools/tiny_ssim "$FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT} $TEMPORAL_SKIP`
+SSIM_RESULTS=`libvpx/tools/tiny_ssim "$INPUT_FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT} $TEMPORAL_SKIP`
 # Extract average PSNR.
 [[ "$SSIM_RESULTS" =~ AvgPSNR:\ ([0-9\.]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
 AVG_PSNR=${BASH_REMATCH[1]}
@@ -172,7 +173,8 @@ BITRATE_UTILIZATION=$(awk "BEGIN {printf \"%0f\n\", ( $BITRATE_USED_BPS / $TARGE
 
 # Print results as a JSON object.
 echo "{"
-echo '  "input-file":' \"$FILE\",
+echo '  "input-file":' \"`basename $INPUT_FILE`\",
+echo '  "input-file-sha1sum":' \"$INPUT_FILE_HASH\",
 echo '  "width":' $WIDTH,
 echo '  "height":' $HEIGHT,
 echo '  "fps":' $FPS,

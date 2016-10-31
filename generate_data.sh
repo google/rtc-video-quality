@@ -6,6 +6,8 @@ function help_and_exit() {
 }
 
 function libvpx() {
+  # COMMON_PARAMS + CODEC_PARAMS are intended to be as close as possible to
+  # realtime settings used in WebRTC.
   COMMON_PARAMS="--lag-in-frames=0 --error-resilient=1 --kf-min-dist=3000 --kf-max-dist=3000 --static-thresh=1 --end-usage=cbr --undershoot-pct=100 --overshoot-pct=15 --buf-sz=1000 --buf-initial-sz=500 --buf-optimal-sz=600 --max-intra-rate=900 --resize-allowed=0 --drop-frame=0 --passes=1 --rt --noise-sensitivity=0"
   if [ "$CODEC" = "vp8" ]; then
     CODEC_PARAMS="--codec=vp8 --cpu-used=-6 --min-q=2 --max-q=56 --screen-content-mode=0 --threads=4"
@@ -13,9 +15,10 @@ function libvpx() {
     # VP9
     CODEC_PARAMS="--codec=vp9 --cpu-used=7 --min-q=2 --max-q=52 --aq-mode=3 --threads=8"
   fi
-  ENCODED_FILE="$OUT_DIR/out.webm"
+  ENCODED_FILE_PREFIX="$OUT_DIR/out"
+  ENCODED_FILE_SUFFIX=webm
   set -x
-  libvpx/vpxenc $CODEC_PARAMS $COMMON_PARAMS --fps=$FPS/1 --target-bitrate=${BITRATES_KBPS[0]} --width=$WIDTH --height=$HEIGHT -o "$ENCODED_FILE" "$FILE"
+  libvpx/vpxenc $CODEC_PARAMS $COMMON_PARAMS --fps=$FPS/1 --target-bitrate=${BITRATES_KBPS[0]} --width=$WIDTH --height=$HEIGHT -o "${ENCODED_FILE_PREFIX}_0.webm" "$FILE"
   { set +x; } 2>/dev/null
 }
 
@@ -42,12 +45,11 @@ function libvpx_tl() {
     >&2 echo Incorrect temporal layers.
     exit 1
   fi
-  ENCODED_FILE="$OUT_DIR/out"
+  ENCODED_FILE_PREFIX="$OUT_DIR/out"
+  ENCODED_FILE_SUFFIX=ivf
   set -x
-  libvpx/examples/vpx_temporal_svc_encoder "$FILE" "$ENCODED_FILE" $CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $THREADS $LAYER_STRATEGY ${BITRATES_KBPS[@]}
+  libvpx/examples/vpx_temporal_svc_encoder "$FILE" "$ENCODED_FILE_PREFIX" $CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $THREADS $LAYER_STRATEGY ${BITRATES_KBPS[@]}
   { set +x; } 2>/dev/null
-  # TODO(pbos): Support lower layers for SSIM/PSNR too.
-  ENCODED_FILE=${ENCODED_FILE}_`expr $TEMPORAL_LAYERS "-" 1`.ivf
 }
 
 ENCODER="$1"
@@ -78,8 +80,10 @@ if [ "$ENCODER" = "libvpx" ]; then
   else
     ENCODER_COMMAND=libvpx_tl
   fi
+  # TODO(pbos): Add support for multiple spatial layers.
   [ "$SPATIAL_LAYERS" = "1" ] || { >&2 echo "Command doesn't support >1 spatial layers yet. :("; help_and_exit; }
-#TODO(pbos): Add support for more encoders here, libva/ffmpeg/etc.
+# TODO(pbos): Add support for screencast settings.
+# TODO(pbos): Add support for more encoders here, libva/ffmpeg/etc.
 elif [ "$ENCODER" = "play" ]; then
   ENCODER_COMMAND=play_mplayer
   OUT_DIR=""
@@ -122,7 +126,8 @@ $ENCODER_COMMAND
 END_TIME=$(date +%s.%N)
 ENCODE_SEC=$(bc <<< "($END_TIME - $START_TIME)")
 
-libvpx/vpxdec --i420 --codec=$CODEC -o "$OUT_DIR/$OUT_FILE" "$ENCODED_FILE"
+ENCODED_FILE="${ENCODED_FILE_PREFIX}_`expr $TEMPORAL_LAYERS - 1`.${ENCODED_FILE_SUFFIX}"
+libvpx/vpxdec --i420 --codec=$CODEC -o "$OUT_DIR/$OUT_FILE" "${ENCODED_FILE}"
 
 RESULTS=`libvpx/tools/tiny_ssim "$FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT}`
 echo

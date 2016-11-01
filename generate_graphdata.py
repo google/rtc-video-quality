@@ -41,7 +41,7 @@ def main():
   if len(sys.argv) == 1:
     exit_usage()
 
-  clip_pattern = re.compile(r"^(.*\.(\d+)_(\d+).yuv):(\d+)$")
+  clip_pattern = re.compile(r"^(.*[\._](\d+)_(\d+).yuv):(\d+)$")
 
   if not os.path.exists('out'):
     os.makedirs('out')
@@ -67,6 +67,7 @@ def main():
               bitrate_config = ":".join([str(i) for i in target_bitrates_kbps])
               output = subprocess.check_output(["bash", "generate_data.sh", encoder_config, bitrate_config, str(fps), input_file])
               graphdata.write(output)
+              graphdata.flush()
 
 if __name__ == '__main__':
   main()

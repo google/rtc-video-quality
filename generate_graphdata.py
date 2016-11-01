@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 
+import os
 import re
 import subprocess
 import sys
@@ -22,6 +23,9 @@ def main():
     exit_usage()
 
   clip_pattern = re.compile(r"^(.*\.(\d+)_(\d+).yuv):(\d+)$")
+
+  if not os.path.exists('out'):
+    os.makedirs('out')
   with open('out/graphdata.txt', 'w') as graphdata:
     for clip in sys.argv[1:]:
       clip_match = clip_pattern.match(clip)

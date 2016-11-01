@@ -8,13 +8,32 @@ import sys
 encoders = ["libvpx-vp8", "libvpx-vp9"]
 layer_bitrates = [[1], [0.6, 1], [0.45, 0.65, 1]]
 
+def find_bitrates(width, height):
+  # Do multiples of 100, because grouping based on bitrate splits in
+  # generate_graphs.py doesn't round properly.
+
+  # TODO(pbos): Propagate the bitrate split in the data instead of inferring it
+  # from the config to avoid rounding errors.
+
+  # Significantly lower than exact value, so 800p still counts as 720p for instance.
+  pixel_bound = width * height / 1.5
+  if pixel_bound <= 320 * 240:
+    return [100, 200, 400, 600, 800, 1200]
+  if pixel_bound <= 640 * 480:
+    return [200, 300, 500, 800, 1200, 2000]
+  if pixel_bound <= 1280 * 720:
+    return [400, 800, 1200, 1600, 2500, 5000]
+  if pixel_bound <= 1920 * 1080:
+    return [800, 1200, 2000, 3000, 5000, 10000]
+  return [1200, 1800, 3000, 6000, 10000, 15000]
+
 def exit_usage():
   sys.exit("Usage: " + sys.argv[0] + " source_file.WIDTH_HEIGHT.yuv:FPS...")
 
 def generate_bitrates_kbps(target_bitrate_kbps, num_temporal_layers):
   bitrates_kbps = []
   for i in range(num_temporal_layers):
-    layer_bitrate_kbps = int(layer_bitrates[num_temporal_layers-1][i] * target_bitrate_kbps)
+    layer_bitrate_kbps = int(layer_bitrates[num_temporal_layers - 1][i] * target_bitrate_kbps)
     bitrates_kbps.append(layer_bitrate_kbps)
   return bitrates_kbps
 
@@ -38,7 +57,7 @@ def main():
       # TODO(pbos): Make sure clips exist.
       # TODO(pbos): Find interesting bitrates based on (width, height). Iterate
       #             through them.
-      bitrates = 100,200,300,500,800,1600,3000
+      bitrates = find_bitrates(width, height)
       for bitrate_kbps in bitrates:
         for num_spatial_layers in [1]:
           for num_temporal_layers in [1, 2, 3]:

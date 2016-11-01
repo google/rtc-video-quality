@@ -36,7 +36,7 @@ def main():
         normalized_bitrate_configs = {}
         for data in layer_pattern:
           config_split = [int(x) for x in data['bitrate-config-kbps'].split(':')]
-          normalized_config = ":".join([str(int(x * 100.0 / config_split[-1] + 0.5)) for x in config_split])
+          normalized_config = ":".join([str(int(x * 100.0 / config_split[-1])) for x in config_split])
           normalized_bitrate_configs[normalized_config] = data
         for normalized_config, data in normalized_bitrate_configs.iteritems():
           generate_graphs(graph_dict, layer_pattern, 'ssim', normalized_config)

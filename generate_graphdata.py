@@ -1,4 +1,17 @@
 #!/usr/bin/env python2
+# Copyright 2016 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import os
 import re
@@ -59,6 +72,7 @@ def main():
       if not os.path.isfile(input_file) or not os.access(input_file, os.R_OK):
         sys.stderr.write("'%s' is either not a file or cannot be opened for reading.\n" % input_file)
         exit_usage()
+    graphdata.write('[')
     for clip in sys.argv[1:]:
       clip_match = clip_pattern.match(clip)
       input_file = clip_match.group(1)
@@ -78,6 +92,7 @@ def main():
               output = subprocess.check_output(["bash", "generate_data.sh", encoder_config, bitrate_config, str(fps), input_file])
               graphdata.write(output)
               graphdata.flush()
+    graphdata.write(']')
 
 if __name__ == '__main__':
   main()

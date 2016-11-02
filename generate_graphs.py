@@ -45,7 +45,7 @@ def main():
 
   for graph_name, lines in graph_dict.iteritems():
     metric = graph_name.split(':')[-1]
-    fig, ax = plt.subplots(1)
+    fig, ax = plt.subplots()
     ax.set_title(graph_name)
     ax.set_xlabel('Bitrate (kbps)')
     ax.set_ylabel(metric.upper())
@@ -67,6 +67,7 @@ def main():
     # Set bitrate limit axes to +/- 20%.
     ax2.set_ylim(bottom=0.80, top=1.20)
     plt.savefig("out/%s.png" % graph_name.replace(":", "-"))
+    plt.close()
 
 if __name__ == '__main__':
   main()

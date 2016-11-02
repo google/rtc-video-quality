@@ -15,7 +15,8 @@ def find_bitrates(width, height):
   # TODO(pbos): Propagate the bitrate split in the data instead of inferring it
   # from the config to avoid rounding errors.
 
-  # Significantly lower than exact value, so 800p still counts as 720p for instance.
+  # Significantly lower than exact value, so 800p still counts as 720p for
+  # instance.
   pixel_bound = width * height / 1.5
   if pixel_bound <= 320 * 240:
     return [100, 200, 400, 600, 800, 1200]
@@ -45,16 +46,25 @@ def main():
 
   if not os.path.exists('out'):
     os.makedirs('out')
+
   with open('out/graphdata.txt', 'w') as graphdata:
+    # Make sure files are correctly formatted + look readable before actually
+    # running the script on them.
     for clip in sys.argv[1:]:
       clip_match = clip_pattern.match(clip)
       if not clip_match:
+        sys.stderr.write("Argument '%s' doesn't match input format.\n" % clip);
         exit_usage()
+      input_file = clip_match.group(1)
+      if not os.path.isfile(input_file) or not os.access(input_file, os.R_OK):
+        sys.stderr.write("'%s' is either not a file or cannot be opened for reading.\n" % input_file)
+        exit_usage()
+    for clip in sys.argv[1:]:
+      clip_match = clip_pattern.match(clip)
       input_file = clip_match.group(1)
       width = int(clip_match.group(2))
       height = int(clip_match.group(3))
       fps = int(clip_match.group(4))
-      # TODO(pbos): Make sure clips exist.
       # TODO(pbos): Find interesting bitrates based on (width, height). Iterate
       #             through them.
       bitrates = find_bitrates(width, height)

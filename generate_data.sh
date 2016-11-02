@@ -18,15 +18,16 @@ function help_and_exit() {
   exit 1
 }
 
+LIBVPX_THREADS=4
 function libvpx() {
   # COMMON_PARAMS + CODEC_PARAMS are intended to be as close as possible to
   # realtime settings used in WebRTC.
-  COMMON_PARAMS="--lag-in-frames=0 --error-resilient=1 --kf-min-dist=3000 --kf-max-dist=3000 --static-thresh=1 --end-usage=cbr --undershoot-pct=100 --overshoot-pct=15 --buf-sz=1000 --buf-initial-sz=500 --buf-optimal-sz=600 --max-intra-rate=900 --resize-allowed=0 --drop-frame=0 --passes=1 --rt --noise-sensitivity=0"
+  COMMON_PARAMS="--lag-in-frames=0 --error-resilient=1 --kf-min-dist=3000 --kf-max-dist=3000 --static-thresh=1 --end-usage=cbr --undershoot-pct=100 --overshoot-pct=15 --buf-sz=1000 --buf-initial-sz=500 --buf-optimal-sz=600 --max-intra-rate=900 --resize-allowed=0 --drop-frame=0 --passes=1 --rt --noise-sensitivity=0 --threads=$LIBVPX_THREADS"
   if [ "$CODEC" = "vp8" ]; then
-    CODEC_PARAMS="--codec=vp8 --cpu-used=-6 --min-q=2 --max-q=56 --screen-content-mode=0 --threads=4"
+    CODEC_PARAMS="--codec=vp8 --cpu-used=-6 --min-q=2 --max-q=56 --screen-content-mode=0"
   else
     # VP9
-    CODEC_PARAMS="--codec=vp9 --cpu-used=7 --min-q=2 --max-q=52 --aq-mode=3 --threads=8"
+    CODEC_PARAMS="--codec=vp9 --cpu-used=7 --min-q=2 --max-q=52 --aq-mode=3"
   fi
   ENCODED_FILE_PREFIX="$OUT_DIR/out"
   ENCODED_FILE_SUFFIX=webm
@@ -41,7 +42,6 @@ function play_mplayer() {
 }
 
 function libvpx_tl() {
-  THREADS=4
   if [ "$CODEC" = "vp8" ]; then
     # TODO(pbos): Account for low resolutions (use CPU=4)
     CODEC_CPU=6
@@ -61,7 +61,7 @@ function libvpx_tl() {
   ENCODED_FILE_PREFIX="$OUT_DIR/out"
   ENCODED_FILE_SUFFIX=ivf
   set -x
-  >&2 libvpx/examples/vpx_temporal_svc_encoder "$INPUT_FILE" "$ENCODED_FILE_PREFIX" $CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $THREADS $LAYER_STRATEGY ${BITRATES_KBPS[@]}
+  >&2 libvpx/examples/vpx_temporal_svc_encoder "$INPUT_FILE" "$ENCODED_FILE_PREFIX" $CODEC $WIDTH $HEIGHT 1 $FPS $CODEC_CPU 0 $LIBVPX_THREADS $LAYER_STRATEGY ${BITRATES_KBPS[@]}
   { set +x; } 2>/dev/null
 }
 

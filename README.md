@@ -35,7 +35,7 @@ risk running the whole thing again.
 
 To generate graphs from existing graph data run:
 
-    $./generate_graphs.py
+    $ ./generate_graphs.py
 
 This will generate several `.png` files under `out/`, where each clip and
 temporal/spatial configuration are grouped together to generate graphs comparing

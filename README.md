@@ -1,8 +1,10 @@
 # Real-Time Video Codec Performance
 
-This project contains a couple of `bash`/`python` scripts  that can be used to
-generate quality metrics and graphs for realtime video codecs. Settings used are
-aimed to be as close as possible to settings used by Chromium's
+_This is not an official Google product._
+
+This project contains a couple of `bash` and `python` scripts  that can be used
+to generate quality metrics and graphs for realtime video codecs. Settings used
+are aimed to be as close as possible to settings used by Chromium's
 [WebRTC](https://code.webrtc.org) implementation.
 
 Quality metrics can currently only be generated for `.yuv` files, any other raw
@@ -10,7 +12,11 @@ formats such as `.y4m` must currently be converted to `clip.WIDTH_HEIGHT.yuv`
 before continuing. Width and height of the raw video is inferred from the
 filename.
 
-_This is not an official Google product._
+A set of clips that can be used for this purpose, but currently require
+conversion before being used, are available at
+[Xiph.org Video Test Media](https://media.xiph.org/video/derf/), aka. "derf's
+collection".
+
 
 ## Building Dependencies
 
@@ -20,6 +26,7 @@ To build pinned versions of dependencies run:
 
 This requires installing git and build dependencies required to build libvpx out
 of band.
+
 
 ## Generating Graphs
 
@@ -41,6 +48,7 @@ This will generate several `.png` files under `out/`, where each clip and
 temporal/spatial configuration are grouped together to generate graphs comparing
 different encoders and layer performances for separate `SSIM`, `AvgPSNR` and
 `GlbPSNR` metrics.
+
 
 ## Adding Encoder Implementations
 

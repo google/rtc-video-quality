@@ -60,7 +60,7 @@ def main():
     metric = graph_name.split(':')[-1]
     fig, ax = plt.subplots()
     ax.set_title(graph_name)
-    ax.set_xlabel('Bitrate (kbps)')
+    ax.set_xlabel('Layer Target Bitrate (kbps)')
     ax.set_ylabel(metric.upper())
     ax2 = ax.twinx()
     ax2.set_ylabel('Bitrate Utilization')

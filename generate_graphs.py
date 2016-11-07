@@ -63,7 +63,7 @@ def main():
     ax.set_xlabel('Layer Target Bitrate (kbps)')
     ax.set_ylabel(metric.upper())
     ax2 = ax.twinx()
-    ax2.set_ylabel('Bitrate Utilization')
+    ax2.set_ylabel('Bitrate Utilization (actual / target)')
     for title in sorted(lines.keys()):
       points = lines[title]
       x = []

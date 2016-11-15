@@ -13,8 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import ast
 import matplotlib.pyplot as plt
+import os
+
+def writable_dir(directory):
+  if not os.path.isdir(directory) or not os.access(directory, os.W_OK):
+    raise argparse.ArgumentTypeError("'%s' is either not a directory or cannot be opened for writing.\n" % directory)
+  return directory
+
+parser = argparse.ArgumentParser(description='Generate graphs from data files.')
+parser.add_argument('graph_files', nargs='+', metavar='graph_file.txt', type=argparse.FileType('r'))
+parser.add_argument('--out_dir', required=True, type=writable_dir)
 
 def split_data(graph_data, attribute):
   groups = {}
@@ -40,8 +51,10 @@ def generate_graphs(output_dict, graph_data, target_metric, bitrate_config):
   output_dict[graph_name] = lines
 
 def main():
-  with open('out/graphdata.txt') as f:
-    graph_data = ast.literal_eval(f.read())
+  args = parser.parse_args()
+  graph_data = []
+  for f in args.graph_files:
+    graph_data += ast.literal_eval(f.read())
 
   graph_dict = {}
   for input_files in split_data(graph_data, 'input-file'):
@@ -79,7 +92,7 @@ def main():
       ax2.plot(x,y2, 'x-', alpha=0.2)
     # Set bitrate limit axes to +/- 20%.
     ax2.set_ylim(bottom=0.80, top=1.20)
-    plt.savefig("out/%s.png" % graph_name.replace(":", "-"))
+    plt.savefig(os.path.join(args.out_dir, "%s.png" % graph_name.replace(":", "-")))
     plt.close()
 
 if __name__ == '__main__':

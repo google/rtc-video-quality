@@ -13,13 +13,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import os
 import re
 import subprocess
 import sys
 
-encoders = ["libvpx-vp8", "libvpx-vp9"]
 layer_bitrates = [[1], [0.6, 1], [0.45, 0.65, 1]]
+
+def clip_pair(clip):
+  # Make sure files are correctly formatted + look readable before actually
+  # running the script on them.
+  clip_pattern = re.compile(r"^(.*[\._](\d+)_(\d+).yuv):(\d+)$")
+  clip_match = clip_pattern.match(clip)
+  if not clip_match:
+    raise argparse.ArgumentTypeError("Argument '%s' doesn't match input format.\n" % clip)
+  input_file = clip_match.group(1)
+  if not os.path.isfile(input_file) or not os.access(input_file, os.R_OK):
+    raise argparse.ArgumentTypeError("'%s' is either not a file or cannot be opened for reading.\n" % input_file)
+  return {'input_file': clip_match.group(1), 'width': int(clip_match.group(2)), 'height': int(clip_match.group(3)), 'fps': int(clip_match.group(4))}
+
+def encoder_pairs(string):
+  pair_pattern = re.compile(r"^(\w+):(\w+)$")
+  encoders = []
+  for pair in string.split(','):
+    pair_match = pair_pattern.match(pair)
+    if not pair_match:
+      raise argparse.ArgumentTypeError("Argument '%s' of '%s' doesn't match input format.\n" % (pair, string))
+    encoders.append({'encoder': pair_match.group(1), 'codec': pair_match.group(2)})
+  return encoders
+
+parser = argparse.ArgumentParser(description='Generate graph data for video-quality comparison.')
+parser.add_argument('clips', nargs='+', metavar='clip_WIDTH_HEIGHT.yuv:fps', type=clip_pair)
+parser.add_argument('--encoders', required=True, metavar='encoder:codec,encoder:codec...', type=encoder_pairs)
+parser.add_argument('--output', required=True, metavar='output.txt', type=argparse.FileType('w'))
+parser.add_argument('--num_temporal_layers', type=int, default=1, choices=[1,2,3])
+# TODO(pbos): Add support for multiple spatial layers.
+parser.add_argument('--num_spatial_layers', type=int, default=1, choices=[1])
 
 def find_bitrates(width, height):
   # Do multiples of 100, because grouping based on bitrate splits in
@@ -41,9 +71,6 @@ def find_bitrates(width, height):
     return [800, 1200, 2000, 3000, 5000, 10000]
   return [1200, 1800, 3000, 6000, 10000, 15000]
 
-def exit_usage():
-  sys.exit("Usage: " + sys.argv[0] + " source_file.WIDTH_HEIGHT.yuv:FPS...")
-
 def generate_bitrates_kbps(target_bitrate_kbps, num_temporal_layers):
   bitrates_kbps = []
   for i in range(num_temporal_layers):
@@ -52,47 +79,23 @@ def generate_bitrates_kbps(target_bitrate_kbps, num_temporal_layers):
   return bitrates_kbps
 
 def main():
-  if len(sys.argv) == 1:
-    exit_usage()
-
-  clip_pattern = re.compile(r"^(.*[\._](\d+)_(\d+).yuv):(\d+)$")
-
   if not os.path.exists('out'):
     os.makedirs('out')
 
-  with open('out/graphdata.txt', 'w') as graphdata:
-    # Make sure files are correctly formatted + look readable before actually
-    # running the script on them.
-    for clip in sys.argv[1:]:
-      clip_match = clip_pattern.match(clip)
-      if not clip_match:
-        sys.stderr.write("Argument '%s' doesn't match input format.\n" % clip);
-        exit_usage()
-      input_file = clip_match.group(1)
-      if not os.path.isfile(input_file) or not os.access(input_file, os.R_OK):
-        sys.stderr.write("'%s' is either not a file or cannot be opened for reading.\n" % input_file)
-        exit_usage()
-    graphdata.write('[')
-    for clip in sys.argv[1:]:
-      clip_match = clip_pattern.match(clip)
-      input_file = clip_match.group(1)
-      width = int(clip_match.group(2))
-      height = int(clip_match.group(3))
-      fps = int(clip_match.group(4))
-      # TODO(pbos): Find interesting bitrates based on (width, height). Iterate
-      #             through them.
-      bitrates = find_bitrates(width, height)
-      for bitrate_kbps in bitrates:
-        for num_spatial_layers in [1]:
-          for num_temporal_layers in [1, 2, 3]:
-            for encoder in encoders:
-              encoder_config = "%s-%dsl%dtl" % (encoder, num_spatial_layers, num_temporal_layers)
-              target_bitrates_kbps = generate_bitrates_kbps(bitrate_kbps, num_temporal_layers)
-              bitrate_config = ":".join([str(i) for i in target_bitrates_kbps])
-              output = subprocess.check_output(["bash", "generate_data.sh", encoder_config, bitrate_config, str(fps), input_file])
-              graphdata.write(output)
-              graphdata.flush()
-    graphdata.write(']')
+  args = parser.parse_args()
+
+  args.output.write('[')
+  for clip in args.clips:
+    bitrates = find_bitrates(clip['width'], clip['height'])
+    for bitrate_kbps in bitrates:
+      for encoder_pair in args.encoders:
+          encoder_config = "%s-%s-%dsl%dtl" % (encoder_pair['encoder'], encoder_pair['codec'], args.num_spatial_layers, args.num_temporal_layers)
+          target_bitrates_kbps = generate_bitrates_kbps(bitrate_kbps, args.num_temporal_layers)
+          bitrate_config = ":".join([str(i) for i in target_bitrates_kbps])
+          output = subprocess.check_output(["bash", "generate_data.sh", encoder_config, bitrate_config, str(clip['fps']), clip['input_file']])
+          args.output.write(output)
+          args.output.flush()
+  args.output.write(']')
 
 if __name__ == '__main__':
   main()

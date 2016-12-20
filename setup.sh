@@ -27,5 +27,5 @@ git fetch
 git checkout --detach ae206924a621f42cac1a252f2695fac43c9b166a
 
 # Build libvpx
-./configure --enable-experimental --enable-spatial-svc --enable-multi-res-encoding
+./configure --enable-pic --enable-experimental --enable-spatial-svc --enable-multi-res-encoding
 make

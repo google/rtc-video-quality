@@ -66,7 +66,7 @@ function libvpx_tl() {
 }
 
 ENCODER="$1"
-OUT_DIR=out/$ENCODER
+OUT_DIR=`mktemp -d`
 # Extract temporal/spatial layer strategy if available, otherwise use 1/1.
 if [[ "$ENCODER" =~ ^(.*)-([1-3])sl([1-3])tl$ ]]; then
   ENCODER=${BASH_REMATCH[1]}
@@ -99,7 +99,7 @@ if [ "$ENCODER" = "libvpx" ]; then
 # TODO(pbos): Add support for more encoders here, libva/ffmpeg/etc.
 elif [ "$ENCODER" = "play" ]; then
   ENCODER_COMMAND=play_mplayer
-  OUT_DIR=""
+  rmdir $OUT_DIR
 else
   >&2 echo Unknown encoder: "'$ENCODER'"
   help_and_exit
@@ -127,13 +127,6 @@ INPUT_FILE="$4"
 WIDTH=${BASH_REMATCH[1]}
 HEIGHT=${BASH_REMATCH[2]}
 OUT_FILE="out.${WIDTH}_${HEIGHT}.yuv"
-
-if [ "$OUT_DIR" ]; then
-  if [ -d "$OUT_DIR" ]; then
-    rm -r "$OUT_DIR"
-  fi
-  mkdir -p "$OUT_DIR"
-fi
 
 START_TIME=$(date +%s.%N)
 $ENCODER_COMMAND
@@ -212,3 +205,6 @@ echo "},"
 
 done
 done
+
+# Remove temp directory.
+rm -r $OUT_DIR

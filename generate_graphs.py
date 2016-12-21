@@ -45,7 +45,8 @@ def generate_graphs(output_dict, graph_data, target_metric, bitrate_config):
         for data in layer:
           metric_data.append((int(data['target-bitrate-bps'])/1000, float(data[target_metric]), float(data['bitrate-utilization'])))
         line_name = '%s-%s-tl%d' % (layer[0]['encoder'], layer[0]['codec'], layer[0]['temporal-layer'])
-        lines[line_name] = metric_data
+        # Sort points on target bitrate.
+        lines[line_name] = sorted(metric_data, key=lambda point: point[0])
 
   graph_name = "%s-%s-%s:%s" % (graph_data[0]['input-file'], graph_data[0]['layer-pattern'], bitrate_config, target_metric)
   output_dict[graph_name] = lines

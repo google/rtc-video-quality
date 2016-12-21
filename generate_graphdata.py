@@ -14,10 +14,12 @@
 # limitations under the License.
 
 import argparse
+import multiprocessing
 import os
 import re
 import subprocess
 import sys
+import threading
 
 layer_bitrates = [[1], [0.6, 1], [0.45, 0.65, 1]]
 
@@ -45,6 +47,7 @@ def encoder_pairs(string):
 
 parser = argparse.ArgumentParser(description='Generate graph data for video-quality comparison.')
 parser.add_argument('clips', nargs='+', metavar='clip_WIDTH_HEIGHT.yuv:fps', type=clip_pair)
+parser.add_argument('--workers', type=int, default=multiprocessing.cpu_count())
 parser.add_argument('--encoders', required=True, metavar='encoder:codec,encoder:codec...', type=encoder_pairs)
 parser.add_argument('--output', required=True, metavar='output.txt', type=argparse.FileType('w'))
 parser.add_argument('--num_temporal_layers', type=int, default=1, choices=[1,2,3])
@@ -78,23 +81,68 @@ def generate_bitrates_kbps(target_bitrate_kbps, num_temporal_layers):
     bitrates_kbps.append(layer_bitrate_kbps)
   return bitrates_kbps
 
-def main():
-  if not os.path.exists('out'):
-    os.makedirs('out')
-
-  args = parser.parse_args()
-
-  args.output.write('[')
+def generate_data_commands(args):
+  commands = []
   for clip in args.clips:
     bitrates = find_bitrates(clip['width'], clip['height'])
     for bitrate_kbps in bitrates:
       for encoder_pair in args.encoders:
-          encoder_config = "%s-%s-%dsl%dtl" % (encoder_pair['encoder'], encoder_pair['codec'], args.num_spatial_layers, args.num_temporal_layers)
-          target_bitrates_kbps = generate_bitrates_kbps(bitrate_kbps, args.num_temporal_layers)
-          bitrate_config = ":".join([str(i) for i in target_bitrates_kbps])
-          output = subprocess.check_output(["bash", "generate_data.sh", encoder_config, bitrate_config, str(clip['fps']), clip['input_file']])
-          args.output.write(output)
-          args.output.flush()
+        encoder_config = "%s-%s-%dsl%dtl" % (encoder_pair['encoder'], encoder_pair['codec'], args.num_spatial_layers, args.num_temporal_layers)
+        target_bitrates_kbps = generate_bitrates_kbps(bitrate_kbps, args.num_temporal_layers)
+        bitrate_config = ":".join([str(i) for i in target_bitrates_kbps])
+        commands.append(["bash", "generate_data.sh", encoder_config, bitrate_config, str(clip['fps']), clip['input_file']])
+  return commands
+
+def start_daemon(func):
+  t = threading.Thread(target=func)
+  t.daemon = True
+  t.start()
+  return t
+
+def worker():
+  global args
+  global commands
+  global current_job
+  global total_jobs
+  while True:
+    with thread_lock:
+      if not commands:
+        return
+      command = commands.pop()
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    (output, error) = process.communicate()
+    with thread_lock:
+      current_job += 1
+      run_ok = process.returncode == 0
+      print "[%d/%d] %s (%s)" % (current_job, total_jobs, " ".join(command[2:]), "OK" if run_ok else "ERROR")
+      if not run_ok:
+        print "\n"
+        print error
+      args.output.write(output)
+      args.output.flush()
+
+
+thread_lock = threading.Lock()
+
+def main():
+  if not os.path.exists('out'):
+    os.makedirs('out')
+
+  global args
+  global commands
+  global total_jobs
+  global current_job
+
+  args = parser.parse_args()
+  commands = generate_data_commands(args)
+  total_jobs = len(commands)
+  current_job = 0
+
+  args.output.write('[')
+
+  workers = [start_daemon(worker) for i in range(args.workers)]
+  [t.join() for t in workers]
+
   args.output.write(']')
 
 if __name__ == '__main__':

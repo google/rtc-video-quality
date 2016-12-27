@@ -7,36 +7,41 @@ to generate quality metrics and graphs for realtime video codecs. Settings used
 are aimed to be as close as possible to settings used by Chromium's
 [WebRTC](https://code.webrtc.org) implementation.
 
-Quality metrics can currently only be generated for `.yuv` files, any other raw
-formats such as `.y4m` must currently be converted to `clip.WIDTH_HEIGHT.yuv`
-before continuing. Width and height of the raw video is inferred from the
-filename.
+Quality metrics can be generated for `.y4m` as well as `.yuv` raw I420 video
+files. `.yuv` files require the special format `clip.WIDTH_HEIGHT.yuv:FPS` since
+width, height and fps metadata are not available in this containerless format.
 
-A set of clips that can be used for this purpose, but currently require
-conversion before being used, are available at
+A set of standard clips that can be used for this purpose are available at
 [Xiph.org Video Test Media](https://media.xiph.org/video/derf/), aka. "derf's
 collection".
 
 
-## Building Dependencies
+## Dependencies
 
-To build pinned versions of dependencies run:
+To build pinned versions of dependencies, comparison tools and libvpx run:
 
     $ ./setup.sh
 
-This requires installing git and build dependencies required to build libvpx out
-of band.
+This requires `git` and build dependencies for libvpx that are not listed here.
+See build instructions for libvpx for build dependencies.
+
+To use `.y4m` files as input (instead of `.yuv`), `mediainfo` and `ffmpeg` are
+both required (to extract metadata and convert to `.yuv`). They can either be
+built and installed from source or likely by running (or similar depending on
+distribution):
+
+    $ sudo apt-get install ffmpeg mediainfo
 
 
 ## Generating Graphs
 
-To generate graph data (after building dependencies), see:
+To generate graph data (after building and installing dependencies), see:
 
     $ ./generate_graphdata.py --help
 
 Example usage:
 
-    $ ./generate_graphdata.py --output=out/libvpx.txt --encoders=libvpx:vp8,libvpx:vp9 clip1.320_240.yuv:30 clip2.320_180.yuv:30
+    $ ./generate_graphdata.py --output=out/libvpx.txt --encoders=libvpx:vp8,libvpx:vp9 clip1.320_240.yuv:30 clip2.320_180.yuv:30 clip3.y4m
 
 This will generate `out/libvpx.txt` for example with an array of JSON-formatted
 data with metrics used later to build graphs. This part takes a long time (may

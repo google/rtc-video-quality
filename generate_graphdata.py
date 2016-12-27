@@ -22,18 +22,24 @@ import sys
 import threading
 
 layer_bitrates = [[1], [0.6, 1], [0.45, 0.65, 1]]
+yuv_clip_pattern = re.compile(r"^(.*[\._](\d+)_(\d+).yuv):(\d+)$")
 
 def clip_pair(clip):
-  # Make sure files are correctly formatted + look readable before actually
+  (file_root, file_ext) = os.path.splitext(clip)
+  if file_ext == '.y4m':
+    width = int(subprocess.check_output(["mediainfo", "--Inform=Video;%Width%", clip]))
+    height = int(subprocess.check_output(["mediainfo", "--Inform=Video;%Height%", clip]))
+    return {'input_file': clip, 'height': height, 'width': width}
+
+  # Make sure YUV files are correctly formatted + look readable before actually
   # running the script on them.
-  clip_pattern = re.compile(r"^(.*[\._](\d+)_(\d+).yuv):(\d+)$")
-  clip_match = clip_pattern.match(clip)
+  clip_match = yuv_clip_pattern.match(clip)
   if not clip_match:
     raise argparse.ArgumentTypeError("Argument '%s' doesn't match input format.\n" % clip)
   input_file = clip_match.group(1)
   if not os.path.isfile(input_file) or not os.access(input_file, os.R_OK):
     raise argparse.ArgumentTypeError("'%s' is either not a file or cannot be opened for reading.\n" % input_file)
-  return {'input_file': clip_match.group(1), 'width': int(clip_match.group(2)), 'height': int(clip_match.group(3)), 'fps': int(clip_match.group(4))}
+  return {'input_file': '%s:%s' % (clip_match.group(1), clip_match.group(4)), 'width': int(clip_match.group(2)), 'height': int(clip_match.group(3))}
 
 def encoder_pairs(string):
   pair_pattern = re.compile(r"^(\w+):(\w+)$")
@@ -46,7 +52,7 @@ def encoder_pairs(string):
   return encoders
 
 parser = argparse.ArgumentParser(description='Generate graph data for video-quality comparison.')
-parser.add_argument('clips', nargs='+', metavar='clip_WIDTH_HEIGHT.yuv:fps', type=clip_pair)
+parser.add_argument('clips', nargs='+', metavar='clip_WIDTH_HEIGHT.yuv:fps|clip.y4m', type=clip_pair)
 parser.add_argument('--workers', type=int, default=multiprocessing.cpu_count())
 parser.add_argument('--encoders', required=True, metavar='encoder:codec,encoder:codec...', type=encoder_pairs)
 parser.add_argument('--output', required=True, metavar='output.txt', type=argparse.FileType('w'))
@@ -90,7 +96,7 @@ def generate_data_commands(args):
         encoder_config = "%s-%s-%dsl%dtl" % (encoder_pair['encoder'], encoder_pair['codec'], args.num_spatial_layers, args.num_temporal_layers)
         target_bitrates_kbps = generate_bitrates_kbps(bitrate_kbps, args.num_temporal_layers)
         bitrate_config = ":".join([str(i) for i in target_bitrates_kbps])
-        commands.append(["bash", "generate_data.sh", encoder_config, bitrate_config, str(clip['fps']), clip['input_file']])
+        commands.append(["bash", "generate_data.sh", encoder_config, bitrate_config, clip['input_file']])
   return commands
 
 def start_daemon(func):

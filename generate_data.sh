@@ -111,28 +111,40 @@ if [ ! "$CONFIG_BITRATES_KBPS" ]; then
   help_and_exit
 fi
 
-
 # Split bitrates into array.
 IFS=: read -r -a BITRATES_KBPS <<< "$CONFIG_BITRATES_KBPS"
 [ "${#BITRATES_KBPS[@]}" = "$TEMPORAL_LAYERS" ] || { >&2 echo Bitrates do not match number of temporal layers.; help_and_exit; }
 
-FPS="$3"
-
-if [ ! "$FPS" ]; then
-  help_and_exit
+INPUT_FILE="$3"
+if [[ "$INPUT_FILE" =~ \.y4m$ ]]; then
+  ORIGINAL_FILE=$INPUT_FILE
+  HEIGHT=$(mediainfo "--Inform=Video;%Height%" $ORIGINAL_FILE)
+  WIDTH=$(mediainfo "--Inform=Video;%Width%" $ORIGINAL_FILE)
+  FPS=$(mediainfo "--Inform=Video;%FrameRate%" $ORIGINAL_FILE)
+  # Round FPS. For quality comparisons it's likely close enough to not be
+  # misrepresentative. From a quality perspective there's no point to fully
+  # respecting NTSC or other non-integer FPS formats here.
+  FPS=`echo "($FPS + 0.5)/1" | bc`
+  # Convert .y4m to .yuv, as .yuv is the file format that tiny_ssim uses for
+  # comparisons.
+  INPUT_FILE="$OUT_DIR/input-conv.yuv"
+  ffmpeg -i "$ORIGINAL_FILE" "$INPUT_FILE" < /dev/null
+else
+[[ "$INPUT_FILE" =~ ([0-9]+)_([0-9]+).yuv:([0-9]+)$ ]] || { >&2 echo File needs to contain WIDTH_HEIGHT.yuv:FPS; help_and_exit; }
+  WIDTH=${BASH_REMATCH[1]}
+  HEIGHT=${BASH_REMATCH[2]}
+  FPS=${BASH_REMATCH[3]}
+  INPUT_FILE=${INPUT_FILE/%:[0-9]*/}
+  ORIGINAL_FILE=$INPUT_FILE
 fi
 
-INPUT_FILE="$4"
-[[ "$INPUT_FILE" =~ ([0-9]+)_([0-9]+).yuv$ ]] || { >&2 echo File needs to contain WIDTH_HEIGHT.yuv; help_and_exit; }
-WIDTH=${BASH_REMATCH[1]}
-HEIGHT=${BASH_REMATCH[2]}
-OUT_FILE="out.${WIDTH}_${HEIGHT}.yuv"
+DECODED_FILE="out.${WIDTH}_${HEIGHT}.yuv"
 
 START_TIME=$(date +%s.%N)
 $ENCODER_COMMAND
 END_TIME=$(date +%s.%N)
 
-INPUT_FILE_HASH=`sha1sum "$INPUT_FILE" | awk '{print $1}'`
+ORIGINAL_FILE_HASH=`sha1sum "$ORIGINAL_FILE" | awk '{print $1}'`
 # Generate stats for each spatial/temporal layer. Highest first to generate
 # accurate expected encode times based on the top layer.
 for SPATIAL_LAYER in $(seq `expr $SPATIAL_LAYERS "-" 1` -1 0); do
@@ -140,7 +152,7 @@ for TEMPORAL_LAYER in $(seq `expr $TEMPORAL_LAYERS "-" 1` -1 0); do
 
 # TODO(pbos): Handle spatial layers.
 ENCODED_FILE="${ENCODED_FILE_PREFIX}_$TEMPORAL_LAYER.${ENCODED_FILE_SUFFIX}"
-libvpx/vpxdec --i420 --codec=$CODEC -o "$OUT_DIR/$OUT_FILE" "${ENCODED_FILE}"
+libvpx/vpxdec --i420 --codec=$CODEC -o "$OUT_DIR/$DECODED_FILE" "${ENCODED_FILE}"
 
 # For temporal layers we need to skip input frames belonging to higher layers.
 # When calculating bitrates we need to take into account that lower layers have
@@ -150,7 +162,7 @@ TEMPORAL_SKIP=`expr $TEMPORAL_DIVIDE "-" 1`
 LAYER_FPS=$(awk "BEGIN {printf \"%0f\n\", ( $FPS / $TEMPORAL_DIVIDE )}")
 
 # Run tiny_ssim to generate SSIM/PSNR scores.
-SSIM_RESULTS=`libvpx/tools/tiny_ssim "$INPUT_FILE" "$OUT_DIR/$OUT_FILE" ${WIDTH}x${HEIGHT} $TEMPORAL_SKIP`
+SSIM_RESULTS=`libvpx/tools/tiny_ssim "$INPUT_FILE" "$OUT_DIR/$DECODED_FILE" ${WIDTH}x${HEIGHT} $TEMPORAL_SKIP`
 # Extract average PSNR.
 [[ "$SSIM_RESULTS" =~ AvgPSNR:\ ([0-9\.]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
 AVG_PSNR=${BASH_REMATCH[1]}
@@ -179,8 +191,8 @@ BITRATE_UTILIZATION=$(awk "BEGIN {printf \"%0f\n\", ( $BITRATE_USED_BPS / $TARGE
 
 # Print results as a JSON object.
 echo "{"
-echo '  "input-file":' \"`basename $INPUT_FILE`\",
-echo '  "input-file-sha1sum":' \"$INPUT_FILE_HASH\",
+echo '  "input-file":' \"`basename $ORIGINAL_FILE`\",
+echo '  "input-file-sha1sum":' \"$ORIGINAL_FILE_HASH\",
 echo '  "width":' $WIDTH,
 echo '  "height":' $HEIGHT,
 echo '  "fps":' $FPS,

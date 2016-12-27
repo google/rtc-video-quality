@@ -145,7 +145,7 @@ libvpx/vpxdec --i420 --codec=$CODEC -o "$OUT_DIR/$OUT_FILE" "${ENCODED_FILE}"
 # For temporal layers we need to skip input frames belonging to higher layers.
 # When calculating bitrates we need to take into account that lower layers have
 # lower frame rates.
-TEMPORAL_DIVIDE=$(awk "BEGIN {print ( 2 ** ( $TEMPORAL_LAYERS - 1 - $TEMPORAL_LAYER ))}")
+TEMPORAL_DIVIDE=$(awk "BEGIN {print ( 2 ^ ( $TEMPORAL_LAYERS - 1 - $TEMPORAL_LAYER ))}")
 TEMPORAL_SKIP=`expr $TEMPORAL_DIVIDE "-" 1`
 LAYER_FPS=$(awk "BEGIN {printf \"%0f\n\", ( $FPS / $TEMPORAL_DIVIDE )}")
 

@@ -138,6 +138,8 @@ def main():
   total_jobs = len(commands)
   current_job = 0
 
+  print "[0/%d] Running jobs..." % total_jobs
+
   args.output.write('[')
 
   workers = [start_daemon(worker) for i in range(args.workers)]

@@ -60,6 +60,12 @@ encoders and layer performances for separate `SSIM`, `AvgPSNR` and `GlbPSNR`
 metrics. Multiple encoders and codecs are placed in the same graphs to enable a
 comparison between them.
 
+_The scripts make heavy use of temporary filespace. Every worker instance uses
+disk space rougly equal to a few copies of the original raw video file that is
+usually huge to begin with. To solve or mitigate issues where disk space runs
+out during graph-data generation, either reduce the amount of workers used with
+`--workers` or use another temporary directory (with more space available) by
+changing the `TMPDIR` environment variable._
 
 ## Adding Encoder Implementations
 

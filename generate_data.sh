@@ -14,7 +14,7 @@
 # limitations under the License.
 
 function help_and_exit() {
-  >&2 echo "Usage: ./generate_data.sh ENCODER BITRATE_KBPS[:BITRATE_KBPS..] FPS file.WIDTH_HEIGHT.yuv"
+  >&2 echo "Usage: ./generate_data.sh ENCODER BITRATE_KBPS[:BITRATE_KBPS..] file.WIDTH_HEIGHT.yuv:FPS|file.y4m"
   exit 1
 }
 

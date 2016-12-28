@@ -65,6 +65,20 @@ function libvpx_tl() {
   { set +x; } 2>/dev/null
 }
 
+function yami() {
+  if [ "$CODEC" = "vp8" ]; then
+    CODEC_PARAMS="-c VP8"
+  else
+    # VP9
+    CODEC_PARAMS="-c VP9"
+  fi
+  ENCODED_FILE_PREFIX="$OUT_DIR/out"
+  ENCODED_FILE_SUFFIX=ivf
+  set -x
+  >&2 yami/libyami/bin/yamiencode $CODEC_PARAMS -i "$INPUT_FILE" -W $WIDTH -H $HEIGHT -f $FPS -o "${ENCODED_FILE_PREFIX}_0.ivf" -b ${BITRATES_KBPS[@]}
+  { set +x; } 2>/dev/null
+}
+
 ENCODER="$1"
 OUT_DIR=`mktemp -d`
 # Extract temporal/spatial layer strategy if available, otherwise use 1/1.
@@ -87,6 +101,7 @@ elif [[ "$ENCODER" =~ ^(.*)-(h264)$ ]]; then
 fi
 
 if [ "$ENCODER" = "libvpx" ]; then
+  # TODO(pbos): Add support for screencast settings.
   [ "$CODEC" = "vp8" ] || [ "$CODEC" = "vp9" ] || { >&2 echo Unsupported codec: "'$CODEC'"; help_and_exit; }
   if [ "$TEMPORAL_LAYERS" = "1" ]; then
     ENCODER_COMMAND=libvpx
@@ -95,8 +110,12 @@ if [ "$ENCODER" = "libvpx" ]; then
   fi
   # TODO(pbos): Add support for multiple spatial layers.
   [ "$SPATIAL_LAYERS" = "1" ] || { >&2 echo "Command doesn't support >1 spatial layers yet. :("; help_and_exit; }
-# TODO(pbos): Add support for screencast settings.
-# TODO(pbos): Add support for more encoders here, libva/ffmpeg/etc.
+elif [ "$ENCODER" = "yami" ]; then
+  [ "$CODEC" = "vp8" ] || [ "$CODEC" = "vp9" ] || { >&2 echo Unsupported codec: "'$CODEC'"; help_and_exit; }
+  ENCODER_COMMAND=yami
+  # TODO(pbos): Add support for multiple spatial/temporal layers.
+  [ "$TEMPORAL_LAYERS" = "1" ] || { >&2 echo "Command doesn't support >1 temporal layers yet. :("; help_and_exit; }
+  [ "$SPATIAL_LAYERS" = "1" ] || { >&2 echo "Command doesn't support >1 spatial layers yet. :("; help_and_exit; }
 elif [ "$ENCODER" = "play" ]; then
   ENCODER_COMMAND=play_mplayer
   rmdir $OUT_DIR

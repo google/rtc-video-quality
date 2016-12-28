@@ -33,6 +33,17 @@ distribution):
     $ sudo apt-get install ffmpeg mediainfo
 
 
+### libyami
+
+To build pinned versions of libyami, VA-API and required utils run:
+
+    $ ./setup_yami.sh
+
+Using libyami encoders (`yami:vp8`, `yami:vp9`) requires VA-API hardware
+encoding support that's at least available on newer Intel chipsets. Hardware
+encoding support can be probed for with `vainfo`.
+
+
 ## Generating Graphs
 
 To generate graph data (after building and installing dependencies), see:
@@ -69,8 +80,8 @@ changing the `TMPDIR` environment variable._
 
 ## Adding Encoder Implementations
 
-This script currently only supports [libvpx](https://www.webmproject.org/code/)
-implementations of VP8 and VP9. Adding support for additional encoders are
-encouraged. This requires adding an entry under `generate_data.sh` which handles
-the new encoder, optionally including support for spatial/temporal
-configurations.
+This script currently supports [libvpx](https://www.webmproject.org/code/)
+and [libyami](https://github.com/01org/libyami) implementations of VP8 and VP9.
+Adding support for additional encoders are encouraged. This requires adding an
+entry under `generate_data.sh` which handles the new encoder, optionally
+including support for spatial/temporal configurations.

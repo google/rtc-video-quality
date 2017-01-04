@@ -75,7 +75,7 @@ function yami() {
   ENCODED_FILE_PREFIX="$OUT_DIR/out"
   ENCODED_FILE_SUFFIX=ivf
   set -x
-  >&2 yami/libyami/bin/yamiencode $CODEC_PARAMS -i "$INPUT_FILE" -W $WIDTH -H $HEIGHT -f $FPS -o "${ENCODED_FILE_PREFIX}_0.ivf" -b ${BITRATES_KBPS[@]}
+  >&2 yami/libyami/bin/yamiencode --intraperiod 3000 $CODEC_PARAMS -i "$INPUT_FILE" -W $WIDTH -H $HEIGHT -f $FPS -o "${ENCODED_FILE_PREFIX}_0.ivf" -b ${BITRATES_KBPS[@]}
   { set +x; } 2>/dev/null
 }
 

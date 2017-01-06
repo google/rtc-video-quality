@@ -69,15 +69,27 @@ def main():
           generate_graphs(graph_dict, layer_pattern, 'ssim', normalized_config)
           generate_graphs(graph_dict, layer_pattern, 'avg-psnr', normalized_config)
           generate_graphs(graph_dict, layer_pattern, 'glb-psnr', normalized_config)
+          generate_graphs(graph_dict, layer_pattern, 'encode-time-utilization', normalized_config)
 
   for graph_name, lines in graph_dict.iteritems():
     metric = graph_name.split(':')[-1]
     fig, ax = plt.subplots()
     ax.set_title(graph_name)
     ax.set_xlabel('Layer Target Bitrate (kbps)')
-    ax.set_ylabel(metric.upper())
-    ax2 = ax.twinx()
-    ax2.set_ylabel('Bitrate Utilization (actual / target)')
+
+    if metric == 'encode-time-utilization':
+      plot_bitrate_utilization = False
+      ax.set_ylabel('Encode time (fraction)')
+      # Draw a reference line for realtime.
+      ax.axhline(1.0, color='k', alpha=0.2, linestyle='--')
+    else:
+      plot_bitrate_utilization = True
+      ax.set_ylabel(metric.upper())
+
+    if plot_bitrate_utilization:
+      ax2 = ax.twinx()
+      ax2.set_ylabel('Bitrate Utilization (actual / target)')
+
     for title in sorted(lines.keys()):
       points = lines[title]
       x = []
@@ -89,10 +101,19 @@ def main():
           y2.append(utilization)
       ax.plot(x,y,'o--', linewidth=1, label=title)
       ax.legend(loc='best', fancybox=True, framealpha=0.5)
-      ax.grid()
-      ax2.plot(x,y2, 'x-', alpha=0.2)
-    # Set bitrate limit axes to +/- 20%.
-    ax2.set_ylim(bottom=0.80, top=1.20)
+      if plot_bitrate_utilization:
+        ax2.plot(x,y2, 'x-', alpha=0.2)
+
+    if metric == 'encode-time-utilization':
+      # Make sure the horizontal reference line at 1.0 can be seen.
+      (lower, upper) = ax.get_ylim()
+      if upper < 1.10:
+        ax.set_ylim(top=1.10)
+
+    if plot_bitrate_utilization:
+      # Set bitrate limit axes to +/- 20%.
+      ax2.set_ylim(bottom=0.80, top=1.20)
+
     plt.savefig(os.path.join(args.out_dir, "%s.png" % graph_name.replace(":", "-")))
     plt.close()
 

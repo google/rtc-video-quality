@@ -71,6 +71,11 @@ encoders and layer performances for separate `SSIM`, `AvgPSNR` and `GlbPSNR`
 metrics. Multiple encoders and codecs are placed in the same graphs to enable a
 comparison between them.
 
+The script also generates graphs for encode time used. For speed tests it's
+recommended to use a SSD or similar, along with a single worker instance to
+minimize the impact that competing processes and disk/network drive performance
+has on time spent encoding.
+
 _The scripts make heavy use of temporary filespace. Every worker instance uses
 disk space rougly equal to a few copies of the original raw video file that is
 usually huge to begin with. To solve or mitigate issues where disk space runs

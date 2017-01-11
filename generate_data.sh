@@ -181,19 +181,40 @@ TEMPORAL_SKIP=`expr $TEMPORAL_DIVIDE "-" 1`
 LAYER_FPS=$(awk "BEGIN {printf \"%0f\n\", ( $FPS / $TEMPORAL_DIVIDE )}")
 
 # Run tiny_ssim to generate SSIM/PSNR scores.
-SSIM_RESULTS=`libvpx/tools/tiny_ssim "$INPUT_FILE" "$OUT_DIR/$DECODED_FILE" ${WIDTH}x${HEIGHT} $TEMPORAL_SKIP`
-# Extract average PSNR.
-[[ "$SSIM_RESULTS" =~ AvgPSNR:\ ([0-9\.]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
-AVG_PSNR=${BASH_REMATCH[1]}
-# Extract global PSNR.
-[[ "$SSIM_RESULTS" =~ GlbPSNR:\ ([0-9\.]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
-GLB_PSNR=${BASH_REMATCH[1]}
-# Extract SSIM.
-[[ "$SSIM_RESULTS" =~ SSIM:\ ([0-9\.]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
-SSIM=${BASH_REMATCH[1]}
-# Extract number of frames.
-[[ "$SSIM_RESULTS" =~ Nframes:\ ([0-9]+) ]] || { >&2 echo Unexpected tiny_ssim output.; exit 1; }
-NUM_FRAMES=${BASH_REMATCH[1]}
+mapfile -t SSIM_RESULTS < <(libvpx/tools/tiny_ssim "$INPUT_FILE" "$OUT_DIR/$DECODED_FILE" ${WIDTH}x${HEIGHT} $TEMPORAL_SKIP)
+
+for i in "${SSIM_RESULTS[@]}"; do
+  fields=(${i//:/});
+  if [ "${fields[0]}" = "AvgPSNR" ]; then
+    AVG_PSNR=${fields[1]}
+  elif [ "${fields[0]}" = "AvgPSNR-Y" ]; then
+    AVG_PSNR_Y=${fields[1]}
+  elif [ "${fields[0]}" = "AvgPSNR-U" ]; then
+    AVG_PSNR_U=${fields[1]}
+  elif [ "${fields[0]}" = "AvgPSNR-V" ]; then
+    AVG_PSNR_V=${fields[1]}
+  elif [ "${fields[0]}" = "GlbPSNR" ]; then
+    GLB_PSNR=${fields[1]}
+  elif [ "${fields[0]}" = "GlbPSNR-Y" ]; then
+    GLB_PSNR_Y=${fields[1]}
+  elif [ "${fields[0]}" = "GlbPSNR-U" ]; then
+    GLB_PSNR_U=${fields[1]}
+  elif [ "${fields[0]}" = "GlbPSNR-V" ]; then
+    GLB_PSNR_V=${fields[1]}
+  elif [ "${fields[0]}" = "VpxSSIM" ]; then
+    VPX_SSIM=${fields[1]}
+  elif [ "${fields[0]}" = "SSIM" ]; then
+    SSIM=${fields[1]}
+  elif [ "${fields[0]}" = "SSIM-Y" ]; then
+    SSIM_Y=${fields[1]}
+  elif [ "${fields[0]}" = "SSIM-U" ]; then
+    SSIM_U=${fields[1]}
+  elif [ "${fields[0]}" = "SSIM-V" ]; then
+    SSIM_V=${fields[1]}
+  elif [ "${fields[0]}" = "Nframes" ]; then
+    NUM_FRAMES=${fields[1]}
+  fi
+done
 
 # Calculate target/actual encode times only once from top temporal/spatial
 # layers.
@@ -223,8 +244,18 @@ echo '  "bitrate-config-kbps":' \"$CONFIG_BITRATES_KBPS\",
 echo '  "spatial-layer":' $SPATIAL_LAYER,
 echo '  "temporal-layer":' $TEMPORAL_LAYER,
 echo '  "avg-psnr":' $AVG_PSNR,
+echo '  "avg-psnr-y":' $AVG_PSNR_Y,
+echo '  "avg-psnr-u":' $AVG_PSNR_U,
+echo '  "avg-psnr-v":' $AVG_PSNR_V,
 echo '  "glb-psnr":' $GLB_PSNR,
+echo '  "glb-psnr-y":' $GLB_PSNR_Y,
+echo '  "glb-psnr-u":' $GLB_PSNR_U,
+echo '  "glb-psnr-v":' $GLB_PSNR_V,
+echo '  "vpx-ssim":' $VPX_SSIM,
 echo '  "ssim":' $SSIM,
+echo '  "ssim-y":' $SSIM_Y,
+echo '  "ssim-u":' $SSIM_U,
+echo '  "ssim-v":' $SSIM_V,
 echo '  "target-bitrate-bps":' $TARGET_BITRATE_BPS,
 echo '  "actual-bitrate-bps":' $BITRATE_USED_BPS,
 echo '  "bitrate-utilization":' $BITRATE_UTILIZATION,

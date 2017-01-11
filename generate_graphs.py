@@ -66,10 +66,24 @@ def main():
           normalized_config = ":".join([str(int(x * 100.0 / config_split[-1])) for x in config_split])
           normalized_bitrate_configs[normalized_config] = data
         for normalized_config, data in normalized_bitrate_configs.iteritems():
-          generate_graphs(graph_dict, layer_pattern, 'ssim', normalized_config)
-          generate_graphs(graph_dict, layer_pattern, 'avg-psnr', normalized_config)
-          generate_graphs(graph_dict, layer_pattern, 'glb-psnr', normalized_config)
-          generate_graphs(graph_dict, layer_pattern, 'encode-time-utilization', normalized_config)
+          metrics = [
+            'vpx-ssim',
+            'ssim',
+            'ssim-y',
+            'ssim-u',
+            'ssim-v',
+            'avg-psnr',
+            'avg-psnr-y',
+            'avg-psnr-u',
+            'avg-psnr-v',
+            'glb-psnr',
+            'glb-psnr-y',
+            'glb-psnr-u',
+            'glb-psnr-v',
+            'encode-time-utilization',
+          ]
+          for metric in metrics:
+            generate_graphs(graph_dict, layer_pattern, metric, normalized_config)
 
   for graph_name, lines in graph_dict.iteritems():
     metric = graph_name.split(':')[-1]

@@ -171,7 +171,7 @@ for TEMPORAL_LAYER in $(seq `expr $TEMPORAL_LAYERS "-" 1` -1 0); do
 
 # TODO(pbos): Handle spatial layers.
 ENCODED_FILE="${ENCODED_FILE_PREFIX}_$TEMPORAL_LAYER.${ENCODED_FILE_SUFFIX}"
-libvpx/vpxdec --i420 --codec=$CODEC -o "$OUT_DIR/$DECODED_FILE" "${ENCODED_FILE}"
+libvpx/vpxdec --i420 --codec=$CODEC -o "$OUT_DIR/$DECODED_FILE" "${ENCODED_FILE}" || { >&2 echo Failed to decode "${ENCODED_FILE}".; exit 1; }
 
 # For temporal layers we need to skip input frames belonging to higher layers.
 # When calculating bitrates we need to take into account that lower layers have

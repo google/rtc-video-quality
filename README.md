@@ -54,11 +54,14 @@ Example usage:
 
     $ ./generate_graphdata.py --output=out/libvpx.txt --encoders=libvpx:vp8,libvpx:vp9 clip1.320_240.yuv:30 clip2.320_180.yuv:30 clip3.y4m
 
-This will generate `out/libvpx.txt` for example with an array of JSON-formatted
-data with metrics used later to build graphs. This part takes a long time (may
-take hours or even days depending on clips, encoders and configurations) as
-multiple clips are encoded using various settings. Make sure to back up this
-file after running or risk running the whole thing all over again.
+This will generate `out/libvpx.txt` for example with an array of Python
+dictionaries with metrics used later to build graphs. This part takes a long
+time (may take hours or even days depending on clips, encoders and
+configurations) as multiple clips are encoded using various settings. Make sure
+to back up this file after running or risk running the whole thing all over
+again.
+
+To preserve encoded files, supply the `--encoded_file_dir` argument.
 
 To generate graphs from existing graph data run:
 
@@ -88,5 +91,5 @@ changing the `TMPDIR` environment variable._
 This script currently supports [libvpx](https://www.webmproject.org/code/)
 and [libyami](https://github.com/01org/libyami) implementations of VP8 and VP9.
 Adding support for additional encoders are encouraged. This requires adding an
-entry under `generate_data.sh` which handles the new encoder, optionally
+entry under `generate_graphdata.py` which handles the new encoder, optionally
 including support for spatial/temporal configurations.

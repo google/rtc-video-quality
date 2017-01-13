@@ -62,7 +62,7 @@ def main():
       for layer_pattern in split_data(input_files, 'layer-pattern'):
         normalized_bitrate_configs = {}
         for data in layer_pattern:
-          config_split = [int(x) for x in data['bitrate-config-kbps'].split(':')]
+          config_split = data['bitrate-config-kbps']
           normalized_config = ":".join([str(int(x * 100.0 / config_split[-1])) for x in config_split])
           normalized_bitrate_configs[normalized_config] = data
         for normalized_config, data in normalized_bitrate_configs.iteritems():

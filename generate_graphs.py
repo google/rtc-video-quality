@@ -25,9 +25,18 @@ def writable_dir(directory):
     raise argparse.ArgumentTypeError("'%s' is either not a directory or cannot be opened for writing.\n" % directory)
   return directory
 
+def formats(formats_list):
+  formats = formats_list.split(',')
+  for extension in formats:
+    if extension not in ['svg', 'png']:
+      raise argparse.ArgumentTypeError("'%s' is not a valid file format.\n" % extension)
+  return formats
+
+
 parser = argparse.ArgumentParser(description='Generate graphs from data files.')
 parser.add_argument('graph_files', nargs='+', metavar='graph_file.txt', type=argparse.FileType('r'))
 parser.add_argument('--out_dir', required=True, type=writable_dir)
+parser.add_argument('--formats', type=formats, metavar='png,svg', help='comma-separated list of output formats', default=['svg'])
 
 def split_data(graph_data, attribute):
   groups = {}
@@ -166,7 +175,8 @@ def main():
       # Set bitrate limit axes to +/- 20%.
       ax2.set_ylim(bottom=0.80, top=1.20)
 
-    plt.savefig(os.path.join(args.out_dir, "%s.png" % graph_name.replace(":", "-")))
+    for extension in args.formats:
+      plt.savefig(os.path.join(args.out_dir, "%s.%s" % (graph_name.replace(":", "-"), extension)))
     plt.close()
 
 if __name__ == '__main__':

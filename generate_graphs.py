@@ -110,8 +110,11 @@ def main():
         line.append((temporal_divide * idx + 1, val, 0))
       graph_dict[graph_name][line_name] = line
 
+  current_graph = 1
+  total_graphs = len(graph_dict)
   for graph_name, lines in graph_dict.iteritems():
-    print graph_name
+    print "[%d/%d] %s" % (current_graph, total_graphs, graph_name)
+    current_graph += 1
     metric = graph_name.split(':')[-1]
     fig, ax = plt.subplots()
     ax.set_title(graph_name)

@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import argparse
+import csv
 import multiprocessing
 import os
 import pprint
@@ -206,7 +207,9 @@ def generate_metrics(results_dict, job, temp_dir, encoded_file):
   temporal_divide = 2 ** (job['num_temporal_layers'] - 1 - encoded_file['temporal-layer'])
   temporal_skip = temporal_divide - 1
   # TODO(pbos): Perform SSIM on downscaled .yuv files for spatial layers.
-  ssim_results = subprocess.check_output(['libvpx/tools/tiny_ssim', clip['yuv_file'], decoded_file, "%dx%d" % (results_dict['width'], results_dict['height']), str(temporal_skip)]).splitlines()
+  (fd, framestats) = tempfile.mkstemp(dir=temp_dir, suffix=".csv")
+  os.close(fd)
+  ssim_results = subprocess.check_output(['libvpx/tools/tiny_ssim', clip['yuv_file'], decoded_file, "%dx%d" % (results_dict['width'], results_dict['height']), str(temporal_skip), framestats]).splitlines()
   metric_map = {
     'AvgPSNR': 'avg-psnr',
     'AvgPSNR-Y': 'avg-psnr-y',
@@ -230,6 +233,15 @@ def generate_metrics(results_dict, job, temp_dir, encoded_file):
       results_dict[metric_map[metric]] = float(value)
     elif metric == 'Nframes':
       layer_frames = int(value)
+
+  with open(framestats) as csvfile:
+    reader = csv.DictReader(csvfile)
+    for row in reader:
+      for (metric, value) in row.items():
+        metric_key = 'frame-%s' % metric
+        if metric_key not in results_dict:
+          results_dict[metric_key] = []
+        results_dict[metric_key].append(float(value))
 
   layer_fps = clip['fps'] / temporal_divide
   results_dict['layer-fps'] = layer_fps

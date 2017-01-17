@@ -24,7 +24,7 @@ fi
 # Check out the correct libvpx version
 pushd libvpx
 git fetch
-git checkout --detach 70ead526f13e82e0c2e3ef9ea47543039190e20b
+git checkout --detach a9ae3516675ab9ddbd64eb1579186391a4780bbd
 
 # Build libvpx
 ./configure --enable-pic --enable-experimental --enable-spatial-svc --enable-multi-res-encoding

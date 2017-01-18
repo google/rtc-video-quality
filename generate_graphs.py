@@ -109,14 +109,20 @@ def main():
       'frame-psnr-y',
       'frame-psnr-u',
       'frame-psnr-v',
+      'frame-qp',
     ]
     for target_metric in frame_metrics:
-      graph_name = "%s-%s-%s-%dkbps-tl%d:%s" % (point['input-file'], point['layer-pattern'], normalize_bitrate_config_string(point['bitrate-config-kbps']), point['bitrate-config-kbps'][-1], point['temporal-layer'], target_metric)
+      split_on_codecs = target_metric == 'frame-qp'
+      if split_on_codecs:
+        graph_name = "%s-%s-%s-%s-%dkbps-tl%d:%s" % (point['input-file'], point['codec'], point['layer-pattern'], normalize_bitrate_config_string(point['bitrate-config-kbps']), point['bitrate-config-kbps'][-1], point['temporal-layer'], target_metric)
+        line_name = '%s' % point['encoder']
+      else:
+        graph_name = "%s-%s-%s-%dkbps-tl%d:%s" % (point['input-file'], point['layer-pattern'], normalize_bitrate_config_string(point['bitrate-config-kbps']), point['bitrate-config-kbps'][-1], point['temporal-layer'], target_metric)
       if not graph_name in graph_dict:
         graph_dict[graph_name] = {}
       line = []
       for idx, val in enumerate(point[target_metric]):
-        line.append((temporal_divide * idx + 1, val, 0))
+        line.append((temporal_divide * idx + 1, val, point['frame-bytes'][idx]))
       graph_dict[graph_name][line_name] = line
 
   current_graph = 1
@@ -128,25 +134,29 @@ def main():
     fig, ax = plt.subplots()
     ax.set_title(graph_name)
     frame_data = 'frame-' in metric
+    ax2 = None
+    ax2_bitrate_utilization = False
+    linestyle = 'o--'
+    ax2_linestyle = 'x-'
 
     if frame_data:
       ax.set_xlabel('Frame')
       ax.set_ylabel(metric.replace('frame-', '').upper())
-      plot_bitrate_utilization = False
+      ax2 = ax.twinx()
+      ax2.set_ylabel('Frame Size (bytes / frame)')
+      linestyle = '-'
+      ax2_linestyle = '-'
     elif metric == 'encode-time-utilization':
-      plot_bitrate_utilization = False
       ax.set_xlabel('Layer Target Bitrate (kbps)')
-      ax.set_ylabel('Encode time (fraction)')
+      ax.set_ylabel('Encode Time (fraction)')
       # Draw a reference line for realtime.
       ax.axhline(1.0, color='k', alpha=0.2, linestyle='--')
     else:
-      plot_bitrate_utilization = True
       ax.set_xlabel('Layer Target Bitrate (kbps)')
       ax.set_ylabel(metric.upper())
-
-    if plot_bitrate_utilization:
       ax2 = ax.twinx()
       ax2.set_ylabel('Bitrate Utilization (actual / target)')
+      ax2_bitrate_utilization = True
 
     for title in sorted(lines.keys()):
       points = lines[title]
@@ -157,13 +167,10 @@ def main():
           x.append(bitrate_kbps)
           y.append(value)
           y2.append(utilization)
-      if frame_data:
-        ax.plot(x,y,'-', linewidth=1, label=title)
-      else:
-        ax.plot(x,y,'o--', linewidth=1, label=title)
+      ax.plot(x, y, linestyle, linewidth=1, label=title)
+      if ax2:
+        ax2.plot(x, y2, ax2_linestyle, alpha=0.2)
       ax.legend(loc='best', fancybox=True, framealpha=0.5)
-      if plot_bitrate_utilization:
-        ax2.plot(x,y2, 'x-', alpha=0.2)
 
     if metric == 'encode-time-utilization':
       # Make sure the horizontal reference line at 1.0 can be seen.
@@ -171,7 +178,7 @@ def main():
       if upper < 1.10:
         ax.set_ylim(top=1.10)
 
-    if plot_bitrate_utilization:
+    if ax2_bitrate_utilization:
       # Set bitrate limit axes to +/- 20%.
       ax2.set_ylim(bottom=0.80, top=1.20)
 

@@ -196,20 +196,32 @@ def prepare_clips(clips, temp_dir):
 def decode_file(job, temp_dir, encoded_file):
   (fd, decoded_file) = tempfile.mkstemp(dir=temp_dir, suffix=".yuv")
   os.close(fd)
+  (fd, framestats_file) = tempfile.mkstemp(dir=temp_dir, suffix=".csv")
+  os.close(fd)
   with open(os.devnull, 'w') as devnull:
-    subprocess.check_call(['libvpx/vpxdec', '--i420', '--codec=%s' % job['codec'], '-o', decoded_file, encoded_file], stdout=devnull, stderr=devnull)
-  return decoded_file
+    subprocess.check_call(['libvpx/vpxdec', '--i420', '--codec=%s' % job['codec'], '-o', decoded_file, encoded_file, '--framestats=%s' % framestats_file], stdout=devnull, stderr=devnull)
+  return (decoded_file, framestats_file)
 
+
+def add_framestats(results_dict, framestats_file, statstype):
+  with open(framestats_file) as csvfile:
+    reader = csv.DictReader(csvfile)
+    for row in reader:
+      for (metric, value) in row.items():
+        metric_key = 'frame-%s' % metric
+        if metric_key not in results_dict:
+          results_dict[metric_key] = []
+        results_dict[metric_key].append(statstype(value))
 
 def generate_metrics(results_dict, job, temp_dir, encoded_file):
-  decoded_file = decode_file(job, temp_dir, encoded_file['filename'])
+  (decoded_file, decoder_framestats) = decode_file(job, temp_dir, encoded_file['filename'])
   clip = job['clip']
   temporal_divide = 2 ** (job['num_temporal_layers'] - 1 - encoded_file['temporal-layer'])
   temporal_skip = temporal_divide - 1
   # TODO(pbos): Perform SSIM on downscaled .yuv files for spatial layers.
-  (fd, framestats) = tempfile.mkstemp(dir=temp_dir, suffix=".csv")
+  (fd, metrics_framestats) = tempfile.mkstemp(dir=temp_dir, suffix=".csv")
   os.close(fd)
-  ssim_results = subprocess.check_output(['libvpx/tools/tiny_ssim', clip['yuv_file'], decoded_file, "%dx%d" % (results_dict['width'], results_dict['height']), str(temporal_skip), framestats]).splitlines()
+  ssim_results = subprocess.check_output(['libvpx/tools/tiny_ssim', clip['yuv_file'], decoded_file, "%dx%d" % (results_dict['width'], results_dict['height']), str(temporal_skip), metrics_framestats]).splitlines()
   metric_map = {
     'AvgPSNR': 'avg-psnr',
     'AvgPSNR-Y': 'avg-psnr-y',
@@ -234,14 +246,8 @@ def generate_metrics(results_dict, job, temp_dir, encoded_file):
     elif metric == 'Nframes':
       layer_frames = int(value)
 
-  with open(framestats) as csvfile:
-    reader = csv.DictReader(csvfile)
-    for row in reader:
-      for (metric, value) in row.items():
-        metric_key = 'frame-%s' % metric
-        if metric_key not in results_dict:
-          results_dict[metric_key] = []
-        results_dict[metric_key].append(float(value))
+  add_framestats(results_dict, decoder_framestats, int)
+  add_framestats(results_dict, metrics_framestats, float)
 
   layer_fps = clip['fps'] / temporal_divide
   results_dict['layer-fps'] = layer_fps

@@ -118,7 +118,7 @@ def main():
       split_on_codecs = target_metric == 'frame-qp'
 
       if split_on_codecs:
-        graph_name = "%s-%s-%s-%s-%dkbps-tl%d:%s" % (point['input-file'], point['codec'], point['layer-pattern'], normalize_bitrate_config_string(point['bitrate-config-kbps']), point['bitrate-config-kbps'][-1], point['temporal-layer'], target_metric)
+        graph_name = "%s-%s-%s-%dkbps-tl%d-%s:%s" % (point['input-file'], point['layer-pattern'], normalize_bitrate_config_string(point['bitrate-config-kbps']), point['bitrate-config-kbps'][-1], point['temporal-layer'], point['codec'], target_metric)
         line_name = '%s' % point['encoder']
       else:
         graph_name = "%s-%s-%s-%dkbps-tl%d:%s" % (point['input-file'], point['layer-pattern'], normalize_bitrate_config_string(point['bitrate-config-kbps']), point['bitrate-config-kbps'][-1], point['temporal-layer'], target_metric)

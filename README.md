@@ -1,17 +1,15 @@
-# Real-Time Video Codec Performance
+# Measuring Video Codec Performance
 
 _This is not an official Google product._
 
-This project contains a couple of `bash` and `python` scripts  that can be used
-to generate quality metrics and graphs for realtime video codecs. Settings used
-are aimed to be as close as possible to settings used by Chromium's
-[WebRTC](https://code.webrtc.org) implementation.
+This project contains a couple of scripts that can be used to generate quality
+metrics and graphs for different video codecs and video encoders.
 
 Quality metrics can be generated for `.y4m` as well as `.yuv` raw I420 video
 files. `.yuv` files require the special format `clip.WIDTH_HEIGHT.yuv:FPS` since
 width, height and fps metadata are not available in this containerless format.
 
-A set of standard clips that can be used for this purpose are available at
+A set of industry-standard clips that can be used are available at
 [Xiph.org Video Test Media](https://media.xiph.org/video/derf/), aka. "derf's
 collection".
 
@@ -33,6 +31,20 @@ distribution):
     $ sudo apt-get install ffmpeg mediainfo
 
 
+## Encoders
+
+After building dependencies with `./setup.sh` libvpx encoders are available.
+Additional encoders have to be fetched and built by using their corresponding
+setup scripts.
+
+`libvpx-rt:vp8` and `libvpx-rt:vp9` use libvpx encoders with settings as close
+as possible to settings used by Chromium's [WebRTC](https://code.webrtc.org)
+implementation.
+
+_TODO(pbos): Add reasonable non-realtime settings for `--good` and `--best`
+settings as `libvpx-good` and `libvpx-best` encoders for comparison with
+`aom-good`._
+
 ### libyami
 
 To build pinned versions of libyami, VA-API and required utils run:
@@ -43,8 +55,24 @@ Using libyami encoders (`yami:vp8`, `yami:vp9`) requires VA-API hardware
 encoding support that's at least available on newer Intel chipsets. Hardware
 encoding support can be probed for with `vainfo`.
 
+### aomedia
 
-## Generating Graphs
+To build pinned versions of [aomedia](http://aomedia.org/) utils run:
+
+    $ ./setup_aom.sh
+
+This permits encoding and evaluating quality for the AV1 video codec by running
+the encoder pair `aom-good:av1`. This runs a runs `aomenc` with `--good`
+configured as a 2-pass non-realtime encoding. This is significantly slower than
+realtime targets but provides better quality.
+
+_There's currently no realtime target for AV1 encoding as the codec isn't
+considered realtime ready at the point of writing. When it is, `aom-rt` should
+be added and runs could then be reasonably compared to other realtime encoders
+and codecs._
+
+
+## Generating Data
 
 To generate graph data (after building and installing dependencies), see:
 
@@ -62,6 +90,8 @@ to back up this file after running or risk running the whole thing all over
 again.
 
 To preserve encoded files, supply the `--encoded_file_dir` argument.
+
+### Generating Graphs
 
 To generate graphs from existing graph data run:
 
@@ -86,10 +116,12 @@ out during graph-data generation, either reduce the amount of workers used with
 `--workers` or use another temporary directory (with more space available) by
 changing the `TMPDIR` environment variable._
 
-## Adding Encoder Implementations
 
-This script currently supports [libvpx](https://www.webmproject.org/code/)
-and [libyami](https://github.com/01org/libyami) implementations of VP8 and VP9.
+## Adding or Updating Encoder Implementations
+
 Adding support for additional encoders are encouraged. This requires adding an
 entry under `generate_graphdata.py` which handles the new encoder, optionally
 including support for spatial/temporal configurations.
+
+Any improvements upstream to encoder implementations have to be pulled in by
+updating pinned revision hashes in corresponding setup/build scripts.

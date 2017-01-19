@@ -112,7 +112,11 @@ def main():
       'frame-qp',
     ]
     for target_metric in frame_metrics:
+      # TODO(pbos): Add frame QP to AV1 decoding.
+      if target_metric == 'frame-qp' and not 'frame-qp' in point:
+        continue
       split_on_codecs = target_metric == 'frame-qp'
+
       if split_on_codecs:
         graph_name = "%s-%s-%s-%s-%dkbps-tl%d:%s" % (point['input-file'], point['codec'], point['layer-pattern'], normalize_bitrate_config_string(point['bitrate-config-kbps']), point['bitrate-config-kbps'][-1], point['temporal-layer'], target_metric)
         line_name = '%s' % point['encoder']
@@ -122,7 +126,11 @@ def main():
         graph_dict[graph_name] = {}
       line = []
       for idx, val in enumerate(point[target_metric]):
-        line.append((temporal_divide * idx + 1, val, point['frame-bytes'][idx]))
+        if 'frame-bytes' in point:
+          line.append((temporal_divide * idx + 1, val, point['frame-bytes'][idx]))
+        else:
+          # TODO(pbos): Add frame size to AV1 decoding.
+          line.append((temporal_divide * idx + 1, val, 0))
       graph_dict[graph_name][line_name] = line
 
   current_graph = 1

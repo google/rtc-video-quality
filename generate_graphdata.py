@@ -235,7 +235,7 @@ def clip_arg(clip):
 
 
 def encoder_pairs(string):
-  pair_pattern = re.compile(r"^(\w+):(\w+)$")
+  pair_pattern = re.compile(r"^([\w\-]+):(\w+)$")
   encoders = []
   for pair in string.split(','):
     pair_match = pair_pattern.match(pair)

@@ -6,7 +6,7 @@ _This is not an official Google product._
 ![Example graph of per-frame SSIM-Y inside a single clip](example-frame-ssim-y.png)
 
 This project contains a couple of scripts that can be used to generate quality
-metrics and graphs for different video codecs and video encoders.
+metrics and graphs for different video codecs, encoders and settings.
 
 Quality metrics can be generated for `.y4m` as well as `.yuv` raw I420 video
 files. `.yuv` files require the special format `clip.WIDTH_HEIGHT.yuv:FPS` since

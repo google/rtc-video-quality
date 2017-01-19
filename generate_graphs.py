@@ -59,7 +59,7 @@ def generate_graphs(output_dict, graph_data, target_metric, bitrate_config_strin
         metric_data = []
         for data in layer:
           metric_data.append((data['target-bitrate-bps']/1000, data[target_metric], data['bitrate-utilization']))
-        line_name = '%s-%s-tl%d' % (layer[0]['encoder'], layer[0]['codec'], layer[0]['temporal-layer'])
+        line_name = '%s:%s (tl%d)' % (layer[0]['encoder'], layer[0]['codec'], layer[0]['temporal-layer'])
         # Sort points on target bitrate.
         lines[line_name] = sorted(metric_data, key=lambda point: point[0])
 
@@ -96,7 +96,7 @@ def main():
           generate_graphs(graph_dict, layer_pattern, metric, normalize_bitrate_config_string(data['bitrate-config-kbps']))
 
   for point in graph_data:
-    line_name = '%s-%s' % (point['encoder'], point['codec'])
+    line_name = '%s:%s' % (point['encoder'], point['codec'])
     pattern_match = layer_regex_pattern.match(point['layer-pattern'])
     num_temporal_layers = int(pattern_match.group(2))
     temporal_divide = 2 ** (num_temporal_layers - 1 - point['temporal-layer'])

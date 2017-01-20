@@ -285,12 +285,11 @@ def prepare_clips(args, temp_dir):
     clip['sha1sum'] = subprocess.check_output(['sha1sum', clip['input_file']]).split(' ', 1)[0]
     if 'yuv_file' not in clip:
       clip['yuv_file'] = clip['input_file']
-  if args.frame_offset > 0 or args.num_frames == -1:
-    for clip in clips:
-      frame_size = 6 * clip['width'] * clip['height'] / 4
-      original_yuv = clip['yuv_file']
-      input_yuv_filesize = os.path.getsize(clip['yuv_file'])
-      clip['input_total_frames'] = input_yuv_filesize / frame_size
+    frame_size = 6 * clip['width'] * clip['height'] / 4
+    input_yuv_filesize = os.path.getsize(clip['yuv_file'])
+    clip['input_total_frames'] = input_yuv_filesize / frame_size
+    # Truncate file if necessary.
+    if args.frame_offset > 0 or args.num_frames > 0:
       (fd, truncated_filename) = tempfile.mkstemp(dir=temp_dir, suffix=".yuv")
       blocksize = 2048 * 1024
       total_filesize = args.num_frames * frame_size

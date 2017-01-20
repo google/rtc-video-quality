@@ -110,11 +110,9 @@ def main():
       'frame-psnr-u',
       'frame-psnr-v',
       'frame-qp',
+      'frame-bytes',
     ]
     for target_metric in frame_metrics:
-      # TODO(pbos): Add frame QP to AV1 decoding.
-      if target_metric == 'frame-qp' and not 'frame-qp' in point:
-        continue
       split_on_codecs = target_metric == 'frame-qp'
 
       if split_on_codecs:
@@ -126,11 +124,7 @@ def main():
         graph_dict[graph_name] = {}
       line = []
       for idx, val in enumerate(point[target_metric]):
-        if 'frame-bytes' in point:
-          line.append((temporal_divide * idx + 1, val, point['frame-bytes'][idx]))
-        else:
-          # TODO(pbos): Add frame size to AV1 decoding.
-          line.append((temporal_divide * idx + 1, val, 0))
+        line.append((temporal_divide * idx + 1, val, point['frame-bytes'][idx]))
       graph_dict[graph_name][line_name] = line
 
   current_graph = 1
@@ -149,11 +143,14 @@ def main():
 
     if frame_data:
       ax.set_xlabel('Frame')
-      ax.set_ylabel(metric.replace('frame-', '').upper())
-      ax2 = ax.twinx()
-      ax2.set_ylabel('Frame Size (bytes / frame)')
       linestyle = '-'
-      ax2_linestyle = '-'
+      if metric == 'frame-bytes':
+        ax.set_ylabel('Frame Size (bytes / frame)')
+      else:
+        ax.set_ylabel(metric.replace('frame-', '').upper())
+        ax2 = ax.twinx()
+        ax2.set_ylabel('Frame Size (bytes / frame)')
+        ax2_linestyle = '-'
     elif metric == 'encode-time-utilization':
       ax.set_xlabel('Layer Target Bitrate (kbps)')
       ax.set_ylabel('Encode Time (fraction)')

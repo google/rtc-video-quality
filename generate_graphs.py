@@ -124,7 +124,7 @@ def main():
         graph_dict[graph_name] = {}
       line = []
       for idx, val in enumerate(point[target_metric]):
-        line.append((temporal_divide * idx + 1, val, point['frame-bytes'][idx]))
+        line.append((point['frame-offset'] + temporal_divide * idx + 1, val, point['frame-bytes'][idx]))
       graph_dict[graph_name][line_name] = line
 
   current_graph = 1
@@ -182,6 +182,10 @@ def main():
       (lower, upper) = ax.get_ylim()
       if upper < 1.10:
         ax.set_ylim(top=1.10)
+
+    # TODO(pbos): Read 'input-total-frames' from input and set as graph xlim.
+    if frame_data:
+      ax.set_xlim(left=0)
 
     if ax2_bitrate_utilization:
       # Set bitrate limit axes to +/- 20%.

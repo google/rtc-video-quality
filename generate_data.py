@@ -250,6 +250,13 @@ def writable_dir(directory):
   return directory
 
 
+def positive_int(num):
+  num_int = int(num)
+  if num_int <= 0:
+    raise argparse.ArgumentTypeError("'%d' is not a positive integer.\n" % num)
+  return num_int
+
+
 parser = argparse.ArgumentParser(description='Generate graph data for video-quality comparison.')
 parser.add_argument('clips', nargs='+', metavar='clip_WIDTH_HEIGHT.yuv:FPS|clip.y4m', type=clip_arg)
 parser.add_argument('--workers', type=int, default=multiprocessing.cpu_count())
@@ -259,9 +266,12 @@ parser.add_argument('--num_temporal_layers', type=int, default=1, choices=[1,2,3
 # TODO(pbos): Add support for multiple spatial layers.
 parser.add_argument('--num_spatial_layers', type=int, default=1, choices=[1])
 parser.add_argument('--encoded_file_dir', default=None, type=writable_dir)
+parser.add_argument('--frame_offset', default=0, type=positive_int)
+parser.add_argument('--num_frames', default=-1, type=positive_int)
 
 
-def prepare_clips(clips, temp_dir):
+def prepare_clips(args, temp_dir):
+  clips = args.clips
   y4m_clips = [clip for clip in clips if clip['file_type'] == 'y4m']
   if y4m_clips:
     print "Converting %d .y4m clip%s..." % (len(y4m_clips), "" if len(y4m_clips) == 1 else "s")
@@ -275,6 +285,23 @@ def prepare_clips(clips, temp_dir):
     clip['sha1sum'] = subprocess.check_output(['sha1sum', clip['input_file']]).split(' ', 1)[0]
     if 'yuv_file' not in clip:
       clip['yuv_file'] = clip['input_file']
+  if args.frame_offset > 0 or args.num_frames == -1:
+    for clip in clips:
+      frame_size = 6 * clip['width'] * clip['height'] / 4
+      original_yuv = clip['yuv_file']
+      input_yuv_filesize = os.path.getsize(clip['yuv_file'])
+      clip['input_total_frames'] = input_yuv_filesize / frame_size
+      (fd, truncated_filename) = tempfile.mkstemp(dir=temp_dir, suffix=".yuv")
+      blocksize = 2048 * 1024
+      total_filesize = args.num_frames * frame_size
+      with os.fdopen(fd, 'wb', blocksize) as truncated_file:
+        with open(clip['yuv_file'], 'rb') as original_file:
+          original_file.seek(args.frame_offset * frame_size)
+          while total_filesize > 0:
+            data = original_file.read(blocksize if blocksize < total_filesize else total_filesize)
+            truncated_file.write(data)
+            total_filesize -= blocksize
+      clip['yuv_file'] = truncated_filename
 
 
 def decode_file(job, temp_dir, encoded_file):
@@ -333,6 +360,7 @@ def generate_metrics(results_dict, job, temp_dir, encoded_file):
       results_dict[metric_map[metric]] = float(value)
     elif metric == 'Nframes':
       layer_frames = int(value)
+      results_dict['frame-count'] = layer_frames
 
   add_framestats(results_dict, decoder_framestats, int)
   add_framestats(results_dict, metrics_framestats, float)
@@ -369,6 +397,8 @@ def run_command(job, encoded_file_dir):
     results_dict = results[i]
     results_dict['input-file'] = os.path.basename(clip['input_file'])
     results_dict['input-file-sha1sum'] = clip['sha1sum']
+    results_dict['input-total-frames'] = clip['input_total_frames']
+    results_dict['frame-offset'] = args.frame_offset
     results_dict['bitrate-config-kbps'] = job['target_bitrates_kbps']
     results_dict['layer-pattern'] = "%dsl%dtl" % (job['num_spatial_layers'], job['num_temporal_layers'])
     results_dict['encoder'] = job['encoder']
@@ -490,7 +520,7 @@ def main():
   temp_dir = tempfile.mkdtemp()
 
   args = parser.parse_args()
-  prepare_clips(args.clips, temp_dir)
+  prepare_clips(args, temp_dir)
   jobs = generate_jobs(args)
   total_jobs = len(jobs)
   current_job = 0

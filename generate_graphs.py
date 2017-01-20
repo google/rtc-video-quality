@@ -96,7 +96,6 @@ def main():
           generate_graphs(graph_dict, layer_pattern, metric, normalize_bitrate_config_string(data['bitrate-config-kbps']))
 
   for point in graph_data:
-    line_name = '%s:%s' % (point['encoder'], point['codec'])
     pattern_match = layer_regex_pattern.match(point['layer-pattern'])
     num_temporal_layers = int(pattern_match.group(2))
     temporal_divide = 2 ** (num_temporal_layers - 1 - point['temporal-layer'])
@@ -120,6 +119,7 @@ def main():
         line_name = '%s' % point['encoder']
       else:
         graph_name = "%s-%s-%s-%dkbps-tl%d:%s" % (point['input-file'], point['layer-pattern'], normalize_bitrate_config_string(point['bitrate-config-kbps']), point['bitrate-config-kbps'][-1], point['temporal-layer'], target_metric)
+        line_name = '%s:%s' % (point['encoder'], point['codec'])
       if not graph_name in graph_dict:
         graph_dict[graph_name] = {}
       line = []

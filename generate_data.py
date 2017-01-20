@@ -310,11 +310,8 @@ def decode_file(job, temp_dir, encoded_file):
   (fd, framestats_file) = tempfile.mkstemp(dir=temp_dir, suffix=".csv")
   os.close(fd)
   with open(os.devnull, 'w') as devnull:
-    if job['codec'] == 'av1':
-      # TODO(pbos): Add aomdec framestats.
-      subprocess.check_call(['aom/aomdec', '--i420', '--codec=%s' % job['codec'], '-o', decoded_file, encoded_file], stdout=devnull, stderr=devnull)
-    else:
-      subprocess.check_call(['libvpx/vpxdec', '--i420', '--codec=%s' % job['codec'], '-o', decoded_file, encoded_file, '--framestats=%s' % framestats_file], stdout=devnull, stderr=devnull)
+    decoder = 'aom/aomdec' if job['codec'] == 'av1' else 'libvpx/vpxdec'
+    subprocess.check_call([decoder, '--i420', '--codec=%s' % job['codec'], '-o', decoded_file, encoded_file, '--framestats=%s' % framestats_file], stdout=devnull, stderr=devnull)
   return (decoded_file, framestats_file)
 
 

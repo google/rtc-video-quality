@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO(pbos): Add installation of build dependencies, including git.
 set -x
 
 # Download libvpx if not available.

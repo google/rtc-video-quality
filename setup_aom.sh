@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO(pbos): Add installation of build dependencies, including git.
 set -x
 
 # Download aom if not available.
@@ -21,11 +20,11 @@ if [ ! -d aom ]; then
   git clone https://aomedia.googlesource.com/aom
 fi
 
-# Check out the pinned libvpx version.
+# Check out the pinned aom version.
 pushd aom
 git fetch
-git checkout --detach 2615d6eaac3194b74ca61b95620f911047d7ad4b
+git checkout --detach 09c0a5bcf57c58963516289ff2173576e3fa8378
 
-# Build libvpx
+# Build aom
 ./configure --enable-pic
 make -j32

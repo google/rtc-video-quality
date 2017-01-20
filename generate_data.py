@@ -204,13 +204,10 @@ def yami_command(job, temp_dir):
   return ([str(i) for i in command], encoded_files)
 
 has_errored = False
-# TODO(pbos): Remove libvpx as a target and add + document {-rt, -good, -best}
-# variations.
 encoder_commands = {
-  "aom-good" : aom_command,
-  "libvpx" : libvpx_command,
-  "libvpx-rt" : libvpx_command,
-  "yami" : yami_command,
+  'aom-good' : aom_command,
+  'libvpx-rt' : libvpx_command,
+  'yami' : yami_command,
 }
 
 

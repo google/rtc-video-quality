@@ -15,6 +15,7 @@
 
 import argparse
 import csv
+import json
 import multiprocessing
 import os
 import pprint
@@ -268,7 +269,8 @@ parser.add_argument('--num_spatial_layers', type=int, default=1, choices=[1])
 parser.add_argument('--encoded_file_dir', default=None, type=writable_dir)
 parser.add_argument('--frame_offset', default=0, type=positive_int)
 parser.add_argument('--num_frames', default=-1, type=positive_int)
-
+parser.add_argument('--enable-vmaf', dest='vmaf', action='store_true')
+parser.set_defaults(vmaf=False)
 
 def prepare_clips(args, temp_dir):
   clips = args.clips
@@ -360,6 +362,15 @@ def generate_metrics(results_dict, job, temp_dir, encoded_file):
 
   add_framestats(results_dict, decoder_framestats, int)
   add_framestats(results_dict, metrics_framestats, float)
+  
+  if args.vmaf:
+    vmaf_results = subprocess.check_output(['vmaf/run_vmaf', 'yuv420p', str(results_dict['width']), str(results_dict['height']), clip['yuv_file'], decoded_file, '--out-fmt', 'json'])
+    vmaf_obj = json.loads(vmaf_results)
+    results_dict['vmaf'] = float(vmaf_obj['aggregate']['VMAF_score'])
+
+    results_dict['frame-vmaf'] = []
+    for frame in vmaf_obj['frames']:
+      results_dict['frame-vmaf'].append(frame['VMAF_score'])
 
   layer_fps = clip['fps'] / temporal_divide
   results_dict['layer-fps'] = layer_fps

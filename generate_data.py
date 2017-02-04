@@ -269,8 +269,7 @@ parser.add_argument('--num_spatial_layers', type=int, default=1, choices=[1])
 parser.add_argument('--encoded_file_dir', default=None, type=writable_dir)
 parser.add_argument('--frame_offset', default=0, type=positive_int)
 parser.add_argument('--num_frames', default=-1, type=positive_int)
-parser.add_argument('--enable-vmaf', dest='vmaf', action='store_true')
-parser.set_defaults(vmaf=False)
+parser.add_argument('--enable-vmaf', dest='vmaf', action='store_true', default=False)
 
 def prepare_clips(args, temp_dir):
   clips = args.clips

@@ -44,11 +44,11 @@ mkdir -p "$YAMI_ROOT_DIR/build"
 pushd "$YAMI_ROOT_DIR/build"
 
 if [ ! -d libva ]; then
-  git clone git://anongit.freedesktop.org/vaapi/libva
+  git clone https://github.com/01org/libva.git
 fi
 
-if [ ! -d intel-driver ]; then
-  git clone git://anongit.freedesktop.org/vaapi/intel-driver
+if [ ! -d intel-vaapi-driver ]; then
+  git clone https://github.com/01org/intel-vaapi-driver.git
 fi
 
 if [ ! -d libyami ]; then
@@ -61,24 +61,24 @@ fi
 
 pushd libva
 git fetch
-git checkout --detach acbc209b9bed133e2feadb74a07d34f8c933dcc0
+git checkout --detach c8d523bcc1e8cfbc432002908dc1e37de002ce78
 ./autogen.sh "--prefix=$VAAPI_PREFIX" && make -j32 && make install
 popd
 
-pushd intel-driver
+pushd intel-vaapi-driver
 git fetch
-git checkout --detach b86c3e9149ddd35113d39935a948e457eff74287
+git checkout --detach 8ccf612d70e333491b1f496ec8542582286a296c
 ./autogen.sh "--prefix=$VAAPI_PREFIX" && make -j32 && make install
 popd
 
 pushd libyami
 git fetch
-git checkout --detach 2f813e2314f661d9f68e0f1e51140894dd7e313d
+git checkout --detach 125f35d8412252aa67efcb7f13737746a1299f1e
 ./autogen.sh --enable-vp8enc --enable-vp9enc --disable-x11 "--prefix=$LIBYAMI_PREFIX" && make -j32 && make install
 popd
 
 pushd libyami-utils
 git fetch
-git checkout --detach 076858a1dd3ca232742d87ad2afa85d0a384104c
+git checkout --detach 0b024ad25c8f9972dd8970642aa5c71fd70ad1c6
 ./autogen.sh --disable-v4l2 --disable-tests-gles --disable-md5 --disable-x11 "--prefix=$LIBYAMI_PREFIX" && make -j32 && make install
 popd

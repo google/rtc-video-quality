@@ -93,6 +93,20 @@ or risk running the whole thing all over again.
 
 To preserve encoded files, supply the `--encoded_file_dir` argument.
 
+### VMAF
+
+Graph data can be optionally supplemented with
+[VMAF](https://github.com/Netflix/vmaf) metrics. To build pinned version of VMAF
+utils, run:
+
+    $ ./setup_vmaf.sh
+
+This requires several additional dependencies that are not listed here.
+See build instructions for VMAF for build dependencies.
+
+To enable the creation of VMAF metrics, supply the `--enable-vmaf` argument to
+`generate_data.py`.
+
 ### Generating Graphs
 
 To generate graphs from existing graph data run:
@@ -117,7 +131,6 @@ usually huge to begin with. To solve or mitigate issues where disk space runs
 out during graph-data generation, either reduce the amount of workers used with
 `--workers` or use another temporary directory (with more space available) by
 changing the `TMPDIR` environment variable._
-
 
 ## Adding or Updating Encoder Implementations
 

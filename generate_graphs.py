@@ -58,6 +58,8 @@ def generate_graphs(output_dict, graph_data, target_metric, bitrate_config_strin
       for layer in split_data(codec, 'temporal-layer'):
         metric_data = []
         for data in layer:
+          if target_metric not in data:
+            return
           metric_data.append((data['target-bitrate-bps']/1000, data[target_metric], data['bitrate-utilization']))
         line_name = '%s:%s (tl%d)' % (layer[0]['encoder'], layer[0]['codec'], layer[0]['temporal-layer'])
         # Sort points on target bitrate.
@@ -91,6 +93,7 @@ def main():
           'glb-psnr-u',
           'glb-psnr-v',
           'encode-time-utilization',
+          'vmaf'
         ]
         for metric in metrics:
           generate_graphs(graph_dict, layer_pattern, metric, normalize_bitrate_config_string(data['bitrate-config-kbps']))
@@ -110,8 +113,12 @@ def main():
       'frame-psnr-v',
       'frame-qp',
       'frame-bytes',
+      'frame-vmaf'
     ]
     for target_metric in frame_metrics:
+      if target_metric not in point:
+        continue
+
       split_on_codecs = target_metric == 'frame-qp'
 
       if split_on_codecs:

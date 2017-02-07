@@ -66,7 +66,7 @@ def generate_graphs(output_dict, graph_data, target_metric, bitrate_config_strin
         lines[line_name] = sorted(metric_data, key=lambda point: point[0])
 
   graph_name = "%s-%s-%s:%s" % (graph_data[0]['input-file'], graph_data[0]['layer-pattern'], bitrate_config_string, target_metric)
-  output_dict[graph_name] = lines
+  output_dict[('', graph_name)] = lines
 
 def main():
   args = parser.parse_args()
@@ -127,16 +127,17 @@ def main():
       else:
         graph_name = "%s-%s-%s-%dkbps-tl%d:%s" % (point['input-file'], point['layer-pattern'], normalize_bitrate_config_string(point['bitrate-config-kbps']), point['bitrate-config-kbps'][-1], point['temporal-layer'], target_metric)
         line_name = '%s:%s' % (point['encoder'], point['codec'])
-      if not graph_name in graph_dict:
-        graph_dict[graph_name] = {}
+      graph_info = ('frame-data-%s/' % point['input-file'], graph_name)
+      if not graph_info in graph_dict:
+        graph_dict[graph_info] = {}
       line = []
       for idx, val in enumerate(point[target_metric]):
         line.append((point['frame-offset'] + temporal_divide * idx + 1, val, point['frame-bytes'][idx]))
-      graph_dict[graph_name][line_name] = line
+      graph_dict[graph_info][line_name] = line
 
   current_graph = 1
   total_graphs = len(graph_dict)
-  for graph_name, lines in graph_dict.iteritems():
+  for (subdir, graph_name), lines in graph_dict.iteritems():
     print "[%d/%d] %s" % (current_graph, total_graphs, graph_name)
     current_graph += 1
     metric = graph_name.split(':')[-1]
@@ -199,7 +200,10 @@ def main():
       ax2.set_ylim(bottom=0.80, top=1.20)
 
     for extension in args.formats:
-      plt.savefig(os.path.join(args.out_dir, "%s.%s" % (graph_name.replace(":", "-"), extension)))
+      graph_dir =  os.path.join(args.out_dir, extension, subdir)
+      if not os.path.exists(graph_dir):
+        os.makedirs(graph_dir)
+      plt.savefig(os.path.join(graph_dir, "%s.%s" % (graph_name.replace(":", "-"), extension)))
     plt.close()
 
 if __name__ == '__main__':

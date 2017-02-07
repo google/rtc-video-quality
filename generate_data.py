@@ -20,12 +20,12 @@ import multiprocessing
 import os
 import pprint
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
-import time
 import threading
-import shutil
+import time
 
 libvpx_threads = 4
 
@@ -260,16 +260,17 @@ def positive_int(num):
 
 parser = argparse.ArgumentParser(description='Generate graph data for video-quality comparison.')
 parser.add_argument('clips', nargs='+', metavar='clip_WIDTH_HEIGHT.yuv:FPS|clip.y4m', type=clip_arg)
-parser.add_argument('--workers', type=int, default=multiprocessing.cpu_count())
+parser.add_argument('--enable-vmaf', action='store_true')
+parser.add_argument('--encoded-file-dir', default=None, type=writable_dir)
 parser.add_argument('--encoders', required=True, metavar='encoder:codec,encoder:codec...', type=encoder_pairs)
-parser.add_argument('--output', required=True, metavar='output.txt', type=argparse.FileType('w'))
-parser.add_argument('--num_temporal_layers', type=int, default=1, choices=[1,2,3])
+parser.add_argument('--frame-offset', default=0, type=positive_int)
+parser.add_argument('--num-frames', default=-1, type=positive_int)
 # TODO(pbos): Add support for multiple spatial layers.
-parser.add_argument('--num_spatial_layers', type=int, default=1, choices=[1])
-parser.add_argument('--encoded_file_dir', default=None, type=writable_dir)
-parser.add_argument('--frame_offset', default=0, type=positive_int)
-parser.add_argument('--num_frames', default=-1, type=positive_int)
-parser.add_argument('--enable-vmaf', dest='vmaf', action='store_true', default=False)
+parser.add_argument('--num-spatial-layers', type=int, default=1, choices=[1])
+parser.add_argument('--num-temporal-layers', type=int, default=1, choices=[1,2,3])
+parser.add_argument('--out', required=True, metavar='output.txt', type=argparse.FileType('w'))
+parser.add_argument('--workers', type=int, default=multiprocessing.cpu_count())
+
 
 def prepare_clips(args, temp_dir):
   clips = args.clips
@@ -325,6 +326,7 @@ def add_framestats(results_dict, framestats_file, statstype):
           results_dict[metric_key] = []
         results_dict[metric_key].append(statstype(value))
 
+
 def generate_metrics(results_dict, job, temp_dir, encoded_file):
   (decoded_file, decoder_framestats) = decode_file(job, temp_dir, encoded_file['filename'])
   clip = job['clip']
@@ -362,7 +364,7 @@ def generate_metrics(results_dict, job, temp_dir, encoded_file):
   add_framestats(results_dict, decoder_framestats, int)
   add_framestats(results_dict, metrics_framestats, float)
   
-  if args.vmaf:
+  if args.enable_vmaf:
     vmaf_results = subprocess.check_output(['vmaf/run_vmaf', 'yuv420p', str(results_dict['width']), str(results_dict['height']), clip['yuv_file'], decoded_file, '--out-fmt', 'json'])
     vmaf_obj = json.loads(vmaf_results)
     results_dict['vmaf'] = float(vmaf_obj['aggregate']['VMAF_score'])
@@ -510,9 +512,9 @@ def worker():
         print error
       else:
         for result in results:
-          args.output.write(pp.pformat(result))
-          args.output.write(',\n')
-        args.output.flush()
+          args.out.write(pp.pformat(result))
+          args.out.write(',\n')
+        args.out.flush()
 
 
 thread_lock = threading.Lock()
@@ -533,12 +535,12 @@ def main():
 
   print "[0/%d] Running jobs..." % total_jobs
 
-  args.output.write('[')
+  args.out.write('[')
 
   workers = [start_daemon(worker) for i in range(args.workers)]
   [t.join() for t in workers]
 
-  args.output.write(']\n')
+  args.out.write(']\n')
 
   shutil.rmtree(temp_dir)
 

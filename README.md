@@ -83,7 +83,7 @@ To generate graph data (after building and installing dependencies), see:
 
 Example usage:
 
-    $ ./generate_data.py --output=libvpx-rt.txt --encoders=libvpx-rt:vp8,libvpx-rt:vp9 clip1.320_240.yuv:30 clip2.320_180.yuv:30 clip3.y4m
+    $ ./generate_data.py --out=libvpx-rt.txt --encoders=libvpx-rt:vp8,libvpx-rt:vp9 clip1.320_240.yuv:30 clip2.320_180.yuv:30 clip3.y4m
 
 This will generate `libvpx-rt.txt` with an array of Python dictionaries with
 metrics used later to build graphs. This part takes a long time (may take hours
@@ -91,7 +91,7 @@ or even days depending on clips, encoders and configurations) as multiple clips
 are encoded using various settings. Make sure to back up this file after running
 or risk running the whole thing all over again.
 
-To preserve encoded files, supply the `--encoded_file_dir` argument.
+To preserve encoded files, supply the `--encoded-file-dir` argument.
 
 ### VMAF
 
@@ -111,7 +111,7 @@ To enable the creation of VMAF metrics, supply the `--enable-vmaf` argument to
 
 To generate graphs from existing graph data run:
 
-    $ generate_graphs.py --out_dir OUT_DIR graph_file.txt [graph_file.txt ...]
+    $ generate_graphs.py --out-dir OUT_DIR graph_file.txt [graph_file.txt ...]
 
 This will generate several `.png` files under `OUT_DIR` from graph files
 generated using `generate_data.py`, where each clip and temporal/spatial

@@ -28,15 +28,15 @@ def writable_dir(directory):
 def formats(formats_list):
   formats = formats_list.split(',')
   for extension in formats:
-    if extension not in ['svg', 'png']:
+    if extension not in ['png', 'svg']:
       raise argparse.ArgumentTypeError("'%s' is not a valid file format.\n" % extension)
   return formats
 
 
 parser = argparse.ArgumentParser(description='Generate graphs from data files.')
 parser.add_argument('graph_files', nargs='+', metavar='graph_file.txt', type=argparse.FileType('r'))
-parser.add_argument('--out_dir', required=True, type=writable_dir)
-parser.add_argument('--formats', type=formats, metavar='png,svg', help='comma-separated list of output formats', default=['svg'])
+parser.add_argument('--out-dir', required=True, type=writable_dir)
+parser.add_argument('--formats', type=formats, metavar='png,svg', help='comma-separated list of output formats', default=['png', 'svg'])
 
 def split_data(graph_data, attribute):
   groups = {}

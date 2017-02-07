@@ -113,7 +113,7 @@ To generate graphs from existing graph data run:
 
     $ generate_graphs.py --out-dir OUT_DIR graph_file.txt [graph_file.txt ...]
 
-This will generate several `.png` files under `OUT_DIR` from graph files
+This will generate several graph image files under `OUT_DIR` from data files
 generated using `generate_data.py`, where each clip and temporal/spatial
 configuration are grouped together to generate graphs comparing different
 encoders and layer performances for separate `SSIM`, `AvgPSNR` and `GlbPSNR`

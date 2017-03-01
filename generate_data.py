@@ -204,7 +204,6 @@ def yami_command(job, temp_dir):
   encoded_files = [{'spatial-layer': 0, 'temporal-layer': 0, 'filename': encoded_filename}]
   return ([str(i) for i in command], encoded_files)
 
-has_errored = False
 encoder_commands = {
   'aom-good' : aom_command,
   'libvpx-rt' : libvpx_command,
@@ -260,6 +259,7 @@ def positive_int(num):
 
 parser = argparse.ArgumentParser(description='Generate graph data for video-quality comparison.')
 parser.add_argument('clips', nargs='+', metavar='clip_WIDTH_HEIGHT.yuv:FPS|clip.y4m', type=clip_arg)
+parser.add_argument('--dump-commands', action='store_true')
 parser.add_argument('--enable-vmaf', action='store_true')
 parser.add_argument('--encoded-file-dir', default=None, type=writable_dir)
 parser.add_argument('--encoders', required=True, metavar='encoder:codec,encoder:codec...', type=encoder_pairs)
@@ -392,7 +392,10 @@ def run_command(job, encoded_file_dir):
   temp_dir = tempfile.mkdtemp()
   (command, encoded_files) = encoder_commands[job['encoder']](job, temp_dir)
   start_time = time.time()
-  process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+  try:
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+  except OSError as e:
+    return (None, "> %s\n%s" % (" ".join(command), e))
   (output, _) = process.communicate()
   actual_encode_ms = (time.time() - start_time) * 1000
   input_yuv_filesize = os.path.getsize(clip['yuv_file'])
@@ -487,6 +490,9 @@ def start_daemon(func):
   t.start()
   return t
 
+def job_to_string(job):
+    return "%s:%s %dsl%dtl %s %s" % (job['encoder'], job['codec'], job['num_spatial_layers'], job['num_temporal_layers'], ":".join(str(i) for i in job['target_bitrates_kbps']), os.path.basename(job['clip']['input_file']))
+
 def worker():
   global args
   global jobs
@@ -502,7 +508,8 @@ def worker():
 
     (results, error) = run_command(job, args.encoded_file_dir)
 
-    job_str = "%s:%s %dsl%dtl %s %s" % (job['encoder'], job['codec'], job['num_spatial_layers'], job['num_temporal_layers'], ":".join(str(i) for i in job['target_bitrates_kbps']), os.path.basename(job['clip']['input_file']))
+    job_str = job_to_string(job)
+
     with thread_lock:
       current_job += 1
       run_ok = results is not None
@@ -524,6 +531,7 @@ def main():
   global jobs
   global total_jobs
   global current_job
+  global has_errored
 
   temp_dir = tempfile.mkdtemp()
 
@@ -532,6 +540,18 @@ def main():
   jobs = generate_jobs(args)
   total_jobs = len(jobs)
   current_job = 0
+  has_errored = False
+
+  if args.dump_commands:
+    for job in jobs:
+      current_job += 1
+      (command, encoded_files) = encoder_commands[job['encoder']](job, temp_dir)
+      print "[%d/%d] %s" % (current_job, total_jobs, job_to_string(job))
+      print "> %s" % " ".join(command)
+      print
+
+    shutil.rmtree(temp_dir)
+    return
 
   print "[0/%d] Running jobs..." % total_jobs
 
@@ -543,9 +563,7 @@ def main():
   args.out.write(']\n')
 
   shutil.rmtree(temp_dir)
+  return 1 if has_errored else 0
 
 if __name__ == '__main__':
-  main()
-
-if has_errored:
-  sys.exit(1)
+  sys.exit(main())

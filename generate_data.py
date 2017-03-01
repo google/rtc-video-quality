@@ -551,7 +551,7 @@ def main():
       print
 
     shutil.rmtree(temp_dir)
-    return
+    return 0
 
   print "[0/%d] Running jobs..." % total_jobs
 

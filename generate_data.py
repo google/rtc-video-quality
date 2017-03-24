@@ -29,6 +29,28 @@ import time
 
 libvpx_threads = 4
 
+binary_absolute_paths = {}
+
+def find_absolute_path(use_system_path, binary):
+  global binary_absolute_paths
+  if binary in binary_absolute_paths:
+    return binary_absolute_paths[binary]
+
+  if use_system_path:
+    for path in os.environ["PATH"].split(os.pathsep):
+      target = os.path.join(path.strip('"'), os.path.basename(binary))
+      if os.path.isfile(target) and os.access(target, os.X_OK):
+        binary_absolute_paths[binary] = target
+        return target
+  target = os.path.join(os.path.dirname(os.path.abspath(__file__)), binary)
+  if os.path.isfile(target) and os.access(target, os.X_OK):
+    if use_system_path:
+      print "WARNING: '%s' not in PATH (using --use-system-path), falling back on locally-compiled binary." % os.path.basename(binary)
+    binary_absolute_paths[binary] = target
+    return target
+
+  sys.exit("ERROR: '%s' missing, did you run the corresponding setup script?" % (os.path.basename(binary) if use_system_path else target))
+
 def aom_command(job, temp_dir):
   assert job['num_spatial_layers'] == 1
   assert job['num_temporal_layers'] == 1
@@ -269,6 +291,7 @@ parser.add_argument('--num-frames', default=-1, type=positive_int)
 parser.add_argument('--num-spatial-layers', type=int, default=1, choices=[1])
 parser.add_argument('--num-temporal-layers', type=int, default=1, choices=[1,2,3])
 parser.add_argument('--out', required=True, metavar='output.txt', type=argparse.FileType('w'))
+parser.add_argument('--use-system-path', action='store_true')
 parser.add_argument('--workers', type=int, default=multiprocessing.cpu_count())
 
 
@@ -363,7 +386,7 @@ def generate_metrics(results_dict, job, temp_dir, encoded_file):
 
   add_framestats(results_dict, decoder_framestats, int)
   add_framestats(results_dict, metrics_framestats, float)
-  
+
   if args.enable_vmaf:
     vmaf_results = subprocess.check_output(['vmaf/run_vmaf', 'yuv420p', str(results_dict['width']), str(results_dict['height']), clip['yuv_file'], decoded_file, '--out-fmt', 'json'])
     vmaf_obj = json.loads(vmaf_results)
@@ -387,10 +410,8 @@ def generate_metrics(results_dict, job, temp_dir, encoded_file):
   results_dict['bitrate-utilization'] = float(bitrate_used_bps) / target_bitrate_bps
 
 
-def run_command(job, encoded_file_dir):
+def run_command(job, (command, encoded_files), job_temp_dir, encoded_file_dir):
   clip = job['clip']
-  temp_dir = tempfile.mkdtemp()
-  (command, encoded_files) = encoder_commands[job['encoder']](job, temp_dir)
   start_time = time.time()
   try:
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -425,14 +446,14 @@ def run_command(job, encoded_file_dir):
     results_dict['temporal-layer'] = layer['temporal-layer']
     results_dict['spatial-layer'] = layer['spatial-layer']
 
-    generate_metrics(results_dict, job, temp_dir, layer)
+    generate_metrics(results_dict, job, job_temp_dir, layer)
     if encoded_file_dir:
       encoded_file_pattern = "%s-%s-%s-%dsl%dtl-%d-sl%d-tl%d%s" % (os.path.splitext(os.path.basename(clip['input_file']))[0], job['encoder'], job['codec'], job['num_spatial_layers'], job['num_temporal_layers'], job['target_bitrates_kbps'][-1], layer['spatial-layer'], layer['temporal-layer'], os.path.splitext(layer['filename'])[1])
       shutil.move(layer['filename'], os.path.join(encoded_file_dir, encoded_file_pattern))
     else:
       os.remove(layer['filename'])
 
-  shutil.rmtree(temp_dir)
+  shutil.rmtree(job_temp_dir)
 
   return (results, output)
 
@@ -467,7 +488,7 @@ def split_temporal_bitrates_kbps(target_bitrate_kbps, num_temporal_layers):
   return bitrates_kbps
 
 
-def generate_jobs(args):
+def generate_jobs(args, temp_dir):
   jobs = []
   for clip in args.clips:
     bitrates = find_bitrates(clip['width'], clip['height'])
@@ -481,7 +502,10 @@ def generate_jobs(args):
           'num_spatial_layers': args.num_spatial_layers,
           'num_temporal_layers': args.num_temporal_layers,
         }
-        jobs.append(job)
+        job_temp_dir = tempfile.mkdtemp(dir=temp_dir)
+        (command, encoded_files) = encoder_commands[job['encoder']](job, job_temp_dir)
+        command[0] = find_absolute_path(args.use_system_path, command[0])
+        jobs.append((job, (command, encoded_files), job_temp_dir))
   return jobs
 
 def start_daemon(func):
@@ -504,9 +528,9 @@ def worker():
     with thread_lock:
       if not jobs:
         return
-      job = jobs.pop()
+      (job, command, job_temp_dir) = jobs.pop()
 
-    (results, error) = run_command(job, args.encoded_file_dir)
+    (results, error) = run_command(job, command, job_temp_dir, args.encoded_file_dir)
 
     job_str = job_to_string(job)
 
@@ -537,21 +561,30 @@ def main():
 
   args = parser.parse_args()
   prepare_clips(args, temp_dir)
-  jobs = generate_jobs(args)
+  jobs = generate_jobs(args, temp_dir)
   total_jobs = len(jobs)
   current_job = 0
   has_errored = False
 
   if args.dump_commands:
-    for job in jobs:
+    for (job, (command, encoded_files), job_temp_dir) in jobs:
       current_job += 1
-      (command, encoded_files) = encoder_commands[job['encoder']](job, temp_dir)
       print "[%d/%d] %s" % (current_job, total_jobs, job_to_string(job))
       print "> %s" % " ".join(command)
       print
 
     shutil.rmtree(temp_dir)
     return 0
+
+  # Make sure commands for quality metrics are present.
+  find_absolute_path(False, 'libvpx/tools/tiny_ssim')
+  for (encoder, codec) in args.encoders:
+    if codec in ['vp8', 'vp9']:
+      find_absolute_path(False, 'libvpx/vpxdec')
+    elif codec == 'av1':
+      find_absolute_path(False, 'aom/aomdec')
+  if args.enable_vmaf:
+    find_absolute_path(False, 'vmaf/run_vmaf')
 
   print "[0/%d] Running jobs..." % total_jobs
 

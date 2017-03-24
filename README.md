@@ -107,6 +107,13 @@ See build instructions for VMAF for build dependencies.
 To enable the creation of VMAF metrics, supply the `--enable-vmaf` argument to
 `generate_data.py`.
 
+### System Binaries
+
+To use system versions of binaries (either installed or otherwise available in
+your `PATH` variable), supply `--use-system-path` to `generate_data.py`. This
+will fall back to locally-compiled binaries (but warn) if the encoder commands
+are not available in `PATH`.
+
 
 ## Dumping Encoder Commands
 

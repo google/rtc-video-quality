@@ -74,6 +74,15 @@ considered realtime ready at the point of writing. When it is, `aom-rt` should
 be added and runs could then be reasonably compared to other realtime encoders
 and codecs._
 
+### OpenH264
+
+To build pinned versions of OpenH264, run:
+
+    $ ./setup_openh264.sh
+
+OpenH264 is a single-pass encoder used in WebRTC both in Chrome and Firefox.
+This adds the `openh264:h264` which runs `h264enc` with settings that are
+intended to be close to WebRTC's implementation.
 
 ## Generating Data
 

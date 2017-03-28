@@ -132,7 +132,8 @@ def main():
         graph_dict[graph_info] = {}
       line = []
       for idx, val in enumerate(point[target_metric]):
-        line.append((point['frame-offset'] + temporal_divide * idx + 1, val, point['frame-bytes'][idx]))
+        frame_size = point['frame-bytes'][idx] if 'frame-bytes' in point else -1
+        line.append((point['frame-offset'] + temporal_divide * idx + 1, val, frame_size))
       graph_dict[graph_info][line_name] = line
 
   current_graph = 1

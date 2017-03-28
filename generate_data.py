@@ -197,6 +197,41 @@ def libvpx_command(job, temp_dir):
   return (command, encoded_files)
 
 
+def openh264_command(job, temp_dir):
+  assert job['codec'] == 'h264'
+  # TODO(pbos): Consider AVC support.
+  assert job['num_spatial_layers'] == 1
+  # TODO(pbos): Add temporal-layer support (-numtl).
+  assert job['num_temporal_layers'] == 1
+
+  (fd, encoded_filename) = tempfile.mkstemp(dir=temp_dir, suffix=".264")
+  os.close(fd)
+
+  clip = job['clip']
+
+  command = [
+    'openh264/h264enc',
+    '-rc', 1,
+    '-denois', 0,
+    '-scene', 0,
+    '-bgd', 0,
+    '-fs', 0,
+    '-tarb', job['target_bitrates_kbps'][0],
+    '-sw', clip['width'],
+    '-sh', clip['height'],
+    '-frin', clip['fps'],
+    '-org', clip['yuv_file'],
+    '-bf', encoded_filename,
+    '-numl', 1,
+    '-dw', 0, clip['width'],
+    '-dh', 0, clip['height'],
+    '-frout', 0, clip['fps'],
+    '-ltarb', 0, job['target_bitrates_kbps'][0],
+  ]
+  encoded_files = [{'spatial-layer': 0, 'temporal-layer': 0, 'filename': encoded_filename}]
+  return ([str(i) for i in command], encoded_files)
+
+
 def yami_command(job, temp_dir):
   assert job['num_spatial_layers'] == 1
   assert job['num_temporal_layers'] == 1
@@ -228,6 +263,7 @@ def yami_command(job, temp_dir):
 
 encoder_commands = {
   'aom-good' : aom_command,
+  'openh264' : openh264_command,
   'libvpx-rt' : libvpx_command,
   'yami' : yami_command,
 }
@@ -334,8 +370,13 @@ def decode_file(job, temp_dir, encoded_file):
   (fd, framestats_file) = tempfile.mkstemp(dir=temp_dir, suffix=".csv")
   os.close(fd)
   with open(os.devnull, 'w') as devnull:
-    decoder = 'aom/aomdec' if job['codec'] == 'av1' else 'libvpx/vpxdec'
-    subprocess.check_call([decoder, '--i420', '--codec=%s' % job['codec'], '-o', decoded_file, encoded_file, '--framestats=%s' % framestats_file], stdout=devnull, stderr=devnull)
+    if job['codec'] in ['av1', 'vp8', 'vp9']:
+      decoder = 'aom/aomdec' if job['codec'] == 'av1' else 'libvpx/vpxdec'
+      subprocess.check_call([decoder, '--i420', '--codec=%s' % job['codec'], '-o', decoded_file, encoded_file, '--framestats=%s' % framestats_file], stdout=devnull, stderr=devnull)
+    elif job['codec'] == 'h264':
+      subprocess.check_call(['openh264/h264dec', encoded_file, decoded_file], stdout=devnull, stderr=devnull)
+      # TODO(pbos): Generate H264 framestats.
+      framestats_file = None
   return (decoded_file, framestats_file)
 
 
@@ -384,7 +425,8 @@ def generate_metrics(results_dict, job, temp_dir, encoded_file):
       layer_frames = int(value)
       results_dict['frame-count'] = layer_frames
 
-  add_framestats(results_dict, decoder_framestats, int)
+  if decoder_framestats:
+    add_framestats(results_dict, decoder_framestats, int)
   add_framestats(results_dict, metrics_framestats, float)
 
   if args.enable_vmaf:
@@ -583,6 +625,8 @@ def main():
       find_absolute_path(False, 'libvpx/vpxdec')
     elif codec == 'av1':
       find_absolute_path(False, 'aom/aomdec')
+    elif codec == 'h264':
+      find_absolute_path(False, 'openh264/h264dec')
   if args.enable_vmaf:
     find_absolute_path(False, 'vmaf/run_vmaf')
 

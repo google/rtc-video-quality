@@ -1,5 +1,6 @@
 aom/
 libvpx/
+openh264/
 out/
 vmaf/
 yami/

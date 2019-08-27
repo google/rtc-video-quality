@@ -152,7 +152,7 @@ minimize the impact that competing processes and disk/network drive performance
 has on time spent encoding.
 
 _The scripts make heavy use of temporary filespace. Every worker instance uses
-disk space rougly equal to a few copies of the original raw video file that is
+disk space roughly equal to a few copies of the original raw video file that is
 usually huge to begin with. To solve or mitigate issues where disk space runs
 out during graph-data generation, either reduce the amount of workers used with
 `--workers` or use another temporary directory (with more space available) by

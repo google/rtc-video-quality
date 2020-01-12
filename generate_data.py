@@ -343,7 +343,7 @@ def prepare_clips(args, temp_dir):
         subprocess.check_call(['ffmpeg', '-y', '-i', clip['input_file'], yuv_file], stdout=devnull, stderr=devnull)
       clip['yuv_file'] = yuv_file
   for clip in clips:
-    clip['sha1sum'] = subprocess.check_output(['sha1sum', clip['input_file']]).split(' ', 1)[0]
+    clip['shasum'] = subprocess.check_output(['shasum', clip['input_file']]).split(' ', 1)[0]
     if 'yuv_file' not in clip:
       clip['yuv_file'] = clip['input_file']
     frame_size = 6 * clip['width'] * clip['height'] / 4
@@ -470,7 +470,7 @@ def run_command(job, (command, encoded_files), job_temp_dir, encoded_file_dir):
   for i in range(len(results)):
     results_dict = results[i]
     results_dict['input-file'] = os.path.basename(clip['input_file'])
-    results_dict['input-file-sha1sum'] = clip['sha1sum']
+    results_dict['input-file-shasum'] = clip['shasum']
     results_dict['input-total-frames'] = clip['input_total_frames']
     results_dict['frame-offset'] = args.frame_offset
     results_dict['bitrate-config-kbps'] = job['target_bitrates_kbps']

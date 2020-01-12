@@ -23,8 +23,12 @@ fi
 # Check out the pinned aom version.
 pushd aom
 git fetch
-git checkout --detach 09c0a5bcf57c58963516289ff2173576e3fa8378
+git checkout --detach master
 
 # Build aom
-./configure --enable-pic
+makdir build
+cd build
+cmake ..
 make -j32
+cp -rf aomenc ../aomenc
+cp -rf aomdec ../aomdec

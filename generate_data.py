@@ -231,6 +231,26 @@ def openh264_command(job, temp_dir):
   encoded_files = [{'spatial-layer': 0, 'temporal-layer': 0, 'filename': encoded_filename}]
   return ([str(i) for i in command], encoded_files)
 
+def rav1e_command(job, temp_dir):
+  assert job['num_spatial_layers'] == 1
+  assert job['num_temporal_layers'] == 1
+  assert job['codec'] == 'rav1e'
+  assert job['encoder'] == 'rav1e-default'
+
+  (fd, encoded_filename) = tempfile.mkstemp(dir=temp_dir, suffix=".ivf")
+  os.close(fd)
+
+  clip = job['clip']
+
+  command = [
+    'rav1e/target/release/rav1e',
+    clip['input_file'],
+    '--tile-rows=2',
+    '--output=%s' % encoded_filename,
+  ]
+
+  encoded_files = [{'spatial-layer': 0, 'temporal-layer': 0, 'filename': encoded_filename}]
+  return ([str(i) for i in command], encoded_files)
 
 def yami_command(job, temp_dir):
   assert job['num_spatial_layers'] == 1
@@ -263,6 +283,7 @@ def yami_command(job, temp_dir):
 
 encoder_commands = {
   'aom-good' : aom_command,
+  'rav1e-default' : rav1e_command,
   'openh264' : openh264_command,
   'libvpx-rt' : libvpx_command,
   'yami' : yami_command,
@@ -367,6 +388,8 @@ def prepare_clips(args, temp_dir):
 def decode_file(job, temp_dir, encoded_file):
   (fd, decoded_file) = tempfile.mkstemp(dir=temp_dir, suffix=".yuv")
   os.close(fd)
+  (fd, decoded_file_rav1e) = tempfile.mkstemp(dir=temp_dir, suffix=".y4m")
+  os.close(fd)
   (fd, framestats_file) = tempfile.mkstemp(dir=temp_dir, suffix=".csv")
   os.close(fd)
   with open(os.devnull, 'w') as devnull:
@@ -377,7 +400,15 @@ def decode_file(job, temp_dir, encoded_file):
       subprocess.check_call(['openh264/h264dec', encoded_file, decoded_file], stdout=devnull, stderr=devnull)
       # TODO(pbos): Generate H264 framestats.
       framestats_file = None
-  return (decoded_file, framestats_file)
+    elif job['codec'] == 'rav1e':
+      decoder = 'dav1d/build/tools/dav1d'
+      subprocess.check_call([decoder,'-i', encoded_file,'-o', decoded_file_rav1e], stdout=devnull, stderr=devnull)
+      framestats_file = None
+
+  if job['codec']=='rav1e':
+    return (decoded_file_rav1e, framestats_file)
+  else:
+    return (decoded_file, framestats_file)
 
 
 def add_framestats(results_dict, framestats_file, statstype):
@@ -625,6 +656,8 @@ def main():
       find_absolute_path(False, 'libvpx/vpxdec')
     elif codec == 'av1':
       find_absolute_path(False, 'aom/aomdec')
+    elif codec == 'rav1e':
+      find_absolute_path(False, 'dav1d/build/tools/dav1d')
     elif codec == 'h264':
       find_absolute_path(False, 'openh264/h264dec')
   if args.enable_vmaf:

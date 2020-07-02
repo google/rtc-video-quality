@@ -84,6 +84,25 @@ OpenH264 is a single-pass encoder used in WebRTC both in Chrome and Firefox.
 This adds the `openh264:h264` which runs `h264enc` with settings that are
 intended to be close to WebRTC's implementation.
 
+### dav1d
+
+To build dav1d, run:
+
+    $ ./setup_dav1d.sh
+
+dav1d is a very fast av1 decoder developed by VideoLAN.
+
+### rav1e
+
+To build rav1e, run:
+   
+   $ ./setup_rav1e.sh
+
+rav1e is a AV1 Encoder which is intended to cover all use-cases where libaom
+is very slow, it is written in rust. Gives near real-time encoding in higher
+speed-levels.
+To use rav1e use `rav1e-default:rav1e`
+
 ## Generating Data
 
 To generate graph data (after building and installing dependencies), see:

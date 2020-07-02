@@ -23,8 +23,8 @@ fi
 # Check out the pinned libvpx version.
 pushd libvpx
 git fetch
-git checkout --detach e758f9d45704ea0247c1b654f8602c967fa44199
+git checkout --detach master
 
 # Build libvpx
-./configure --enable-pic --enable-experimental --enable-spatial-svc --enable-multi-res-encoding
+./configure --enable-pic --enable-experimental --enable-multi-res-encoding
 make -j32
